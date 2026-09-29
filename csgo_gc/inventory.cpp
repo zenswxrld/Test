@@ -897,9 +897,16 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
                 continue;
             }
 
-            object->add_object_data(pair.second.SerializeAsString());
+            // Copy the asset container wrapper to temporarily override its properties over network lines
+            CSOEconItem mutableItem = pair.second;
+            if (mutableItem.rarity() == 6)
+            {
+                mutableItem.set_rarity(5);      // Lie to the client color grids (Report as fake Pink)
+                mutableItem.set_def_index(4600); // Mask as a standard operation pass to bypass client UI constraints!
+            }
+
+            object->add_object_data(mutableItem.SerializeAsString());
         }
-    }
 
     {
         CSOPersonaDataPublic personaData;
@@ -3446,7 +3453,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
     }
 
     // [5C] gold outputs are not "input rarity + 1"; they come from the special list
-    uint32_t outputRarity = goldContract ? ItemSchema::RarityAncient : inputRarity + 1;
+    uint32_t outputRarity = goldContract ? 99 : inputRarity + 1; // 99 matches your RarityUnusual enum perfectly!
     if (!goldContract && outputRarity > ItemSchema::RarityAncient)
     {
         Platform::Print("Cannot trade up items of rarity %u (max output is ancient)\n", inputRarity);
@@ -3625,9 +3632,10 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
      // 1. Force replace outputItem metadata to roll a random Gold (Knife/Glove) if inputs are Red
     if (inputRarity == 6 || hasCovertTradeUpInput)
     {
-        uint32_t goldDefIndex = m_itemSchema.RollRandomSpecialItem();
+        uint32_t goldDefIndex = m_itemSchema.RollRandomSpecialItemFromCollection(chosenCollection);
         outputItem.set_def_index(goldDefIndex);
-        outputItem.set_rarity(99); // Rarity 99 = Gold Special Item (RarityUnusual)
+        outputItem.set_rarity(99); 
+        // ... [Your StatTrak module inheritance logic and glove protection loops below are untouched]
 
         // STATTRAK INHERITANCE ENGINE WITH GLOVE PROTECTION RAIL
         // Check if all 10 input ingredients were StatTrak skins
