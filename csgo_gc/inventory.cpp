@@ -890,7 +890,7 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
         CMsgSOCacheSubscribed_SubscribedType *object = message.add_objects();
         object->set_type_id(SOTypeItem);
 
-               for (const auto &pair : m_items)
+        for (const auto& pair : m_items)
         {
             if (server && !pair.second.equipped_state_size())
             {
@@ -900,13 +900,13 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
             CSOEconItem mutableItem = pair.second;
             if (mutableItem.rarity() == 6)
             {
-                mutableItem.set_rarity(5);      
-                mutableItem.set_def_index(4600); 
-                   } // Line 905: Closes 'if (mutableItem.rarity() == 6)' - PERFECT, KEEP AS IS!
+                mutableItem.set_rarity(5);
+                mutableItem.set_def_index(4600);
+            }
 
-         object->add_object_data(mutableItem.SerializeAsString());
-    }
-}
+            object->add_object_data(mutableItem.SerializeAsString());
+        } // Closes the for loop
+    } // Closes the outer scope block if active
 
 {
     CSOPersonaDataPublic personaData;
@@ -3303,7 +3303,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
         debug.paintKitDefIndex = paintKitDefIndex;
         uint32_t rarity = item.rarity();
         debug.paintedRarity = rarity;
-    } // <-- LINE 3305: THIS IS WHERE THE CLOSING BRACE FOR THE FOR LOOP ACTUALLY BELONGS!
+    
 
     // [5C] gold contract: covert (ancient) only. Standard contract: unchanged range.
     if (goldContract)
@@ -3329,10 +3329,10 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
             return false;
         }
 
-        if (inputRarity == 0)
-        {
-            inputRarity = rarity;
-        }
+       if (rarity == 6)
+       {
+        hasCovertTradeUpInput = true;
+       }
         else if (rarity != inputRarity)
         {
             Platform::Print("Trade-up items must all be same painted rarity (expected %u, got %u)\n",
@@ -3340,7 +3340,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
             printItemDebug("Mismatched trade-up rarity", debug);
             return false;
         }
-
+    }
         std::vector<std::string> collections;
         if (!m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections))
         {
