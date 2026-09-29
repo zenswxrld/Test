@@ -1345,14 +1345,14 @@ void ItemSchema::ParseLootLists(const KeyValue *lootListsKey, bool unusual)
                 continue;
             }
 
-            // check for an item
+        
             LootListItem item;
             if (ParseLootListItem(item, entryName))
             {
                 if (unusual)
                 {
-                    // override the quality here...
-                    item.quality = ItemSchema::QualityUnusual
+                   
+                    item.quality = ItemSchema::QualityUnusual;
                 }
 
                 lootList.items.push_back(item);
