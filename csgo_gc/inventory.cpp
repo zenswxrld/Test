@@ -3284,13 +3284,6 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
         debug.storedRarity = item.rarity();
         debug.quality = item.quality();
 
-        // 1. SERVER RESTORATION RAIL:
-        // Flag if a database Covert item (6) is found inside our input items loop body block
-        if (item.rarity() == 6)
-        {
-            hasCovertTradeUpInput = true;
-        }
-
         // 2. Original item weapon properties validation parsing checks continue here safely INSIDE the loop:
         uint32_t paintKitDefIndex = 0;
         if (!GetItemPaintKitDefIndex(item, m_itemSchema, paintKitDefIndex))
@@ -3303,6 +3296,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
         debug.paintKitDefIndex = paintKitDefIndex;
         uint32_t rarity = item.rarity();
         debug.paintedRarity = rarity;
+    
     
 
     // [5C] gold contract: covert (ancient) only. Standard contract: unchanged range.
@@ -3402,7 +3396,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
                 wearCount++;
             }
         }
-
+    
         if (!hasWear)
         {
             Platform::Print("Trade-up item %llu has no wear attribute; cannot calculate contract output float\n",
@@ -3410,7 +3404,9 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
             printItemDebug("Missing trade-up wear", debug);
             return false;
         }
+    }
 
+              
         // [FIX] a missing score-type attribute means weapon kills (score type 0).
         // Previously StatTrak items without the attribute were rejected as unsupported.
         const bool hasWeaponKillEaterScoreType = hasKillEater && !hasNonWeaponScoreType;
@@ -3558,13 +3554,10 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
     outputItem.set_quantity(1);
     outputItem.set_level(1);
     outputItem.set_origin(ItemOriginCrate);
-    // [5C] gold: take rarity/quality from the loot list entry so knives/gloves
-    // match what case opening produces
     outputItem.set_rarity(goldContract && selectedCandidate->rarity
         ? selectedCandidate->rarity : outputRarity);
 
-    // [5C] knives/gloves are Unusual (the star), not Unique. VERIFY the StatTrak
-    // case against what CreateItemFromLootListItem does for a StatTrak knife.
+
     if (goldContract)
     {
         outputItem.set_quality(hasStatTrak
@@ -3580,7 +3573,6 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
 
     float outputWear = avgWear;
 
-    // [5C] vanilla knives get no paint kit, seed or wear
     if (selectedCandidate->paintKitInfo)
     {
         uint32_t paintKitId = selectedCandidate->paintKitInfo->m_defIndex;
