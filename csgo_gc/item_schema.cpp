@@ -2163,23 +2163,19 @@ bool ItemSchema::GetSpecialTradeUpCandidates(std::string_view collectionName,
     outCandidates = it->second;
     return !outCandidates.empty();
 }
+
 uint32_t ItemSchema::RollRandomSpecialItemFromCollection(const std::string &collectionId) const
+
 {
-    // 1. Actively build special lookup caches into RAM if unbuilt
     BuildSpecialTradeUpPools();
 
-    // 2. Query the dynamic mutable map for the targeted case collection
     auto it = m_specialPoolByCollection.find(collectionId);
     if (it != m_specialPoolByCollection.end() && !it->second.empty())
     {
-        // Select a pseudo-random index strictly within the items assigned to this exact collection
         size_t rolledIndex = rand() % it->second.size();
-        
-        // Return its accurate, inner definition index variable path
         return it->second[rolledIndex]->itemInfo->m_defIndex;
     }
 
-    // 3. Global fallback safety rail if a custom collection container lacks unique unusual mappings
     if (!m_specialPoolByCollection.empty())
     {
         auto fallbackIt = m_specialPoolByCollection.begin();
@@ -2189,5 +2185,5 @@ uint32_t ItemSchema::RollRandomSpecialItemFromCollection(const std::string &coll
         }
     }
 
-    return 400; // Hardcoded default knife definition ID backup safety fallback
+    return 400; // Hard fallback safety knife definition ID
 }
