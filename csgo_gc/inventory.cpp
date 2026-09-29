@@ -900,13 +900,16 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
             CSOEconItem mutableItem = pair.second;
             if (mutableItem.rarity() == 6)
             {
-                mutableItem.set_rarity(5);
-                mutableItem.set_def_index(4600);
+                mutableItem.set_rarity(5);      
+                mutableItem.set_def_index(4600); 
             }
 
             object->add_object_data(mutableItem.SerializeAsString());
-        } // Closes the for loop
-    } // Closes the outer scope block if active
+        } 
+    } 
+
+    {
+        CSOPersonaDataPublic personaData;
 
 {
     CSOPersonaDataPublic personaData;
