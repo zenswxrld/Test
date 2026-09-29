@@ -908,14 +908,14 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
         }
     }
 
-        CSOPersonaDataPublic personaData;
-        personaData.set_player_level(m_playerLevel);
-    personaData.set_elevated_state(GetConfig().PrimeStatus());
+           CSOPersonaDataPublic personaData;
+           personaData.set_player_level(m_playerLevel);
+           personaData.set_elevated_state(GetConfig().PrimeStatus());
 
-        CMsgSOCacheSubscribed_SubscribedType *object = message.add_objects();
-        object->set_type_id(SOTypePersonaDataPublic);
-        object->add_object_data(personaData.SerializeAsString());
-    }
+            CMsgSOCacheSubscribed_SubscribedType* object = message.add_objects();
+            object->set_type_id(SOTypePersonaDataPublic);
+            object->add_object_data(personaData.SerializeAsString());
+
 
     if (!m_seasonalOperations.empty())
     {
@@ -3257,7 +3257,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
             debug.quality,
             debug.collectionId.c_str(),
             GetCollectionName(m_itemSchema, debug.collectionId).c_str());
-    };
+    }; 
 
     for (uint64_t itemId : inputItemIds)
     {
