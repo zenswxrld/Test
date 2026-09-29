@@ -912,14 +912,14 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
            personaData.set_player_level(m_playerLevel);
            personaData.set_elevated_state(GetConfig().PrimeStatus());
 
-            CMsgSOCacheSubscribed_SubscribedType* object = message.add_objects();
+            object = message.add_objects();
             object->set_type_id(SOTypePersonaDataPublic);
             object->add_object_data(personaData.SerializeAsString());
 
 
     if (!m_seasonalOperations.empty())
     {
-        CMsgSOCacheSubscribed_SubscribedType *object = message.add_objects();
+        object = message.add_objects();
         object->set_type_id(SOTypeAccountSeasonalOperation);
         for (const auto &entry : m_seasonalOperations)
         {
@@ -936,7 +936,7 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
             recurringSubscription.set_time_initiated(subscription->timeInitiated);
             recurringSubscription.set_time_next_cycle(subscription->timeNextCycle);
 
-            CMsgSOCacheSubscribed_SubscribedType *object = message.add_objects();
+            object = message.add_objects();
             object->set_type_id(SOTypeAccountRecurringSubscription);
             object->add_object_data(recurringSubscription.SerializeAsString());
         }
@@ -953,7 +953,7 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
     }
 
     {
-        CMsgSOCacheSubscribed_SubscribedType *object = message.add_objects();
+        object = message.add_objects();
         object->set_type_id(SOTypeDefaultEquippedDefinitionInstanceClient);
 
         for (const CSOEconDefaultEquippedDefinitionInstanceClient &defaultEquip : m_defaultEquips)
@@ -3333,7 +3333,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
             printItemDebug("Mismatched trade-up rarity", debug);
             return false;
         }
-    }
+    
     std::vector<std::string> collections;
         if (m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections) == false)
     {
