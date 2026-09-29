@@ -901,10 +901,11 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
             CSOEconItem mutableItem = pair.second;
             if (mutableItem.rarity() == 6)
             {
-                mutableItem.set_rarity(5);      // Lie to the client color grids (Report as fake Pink)
-                mutableItem.set_def_index(4600); // Mask as a standard operation pass to bypass client UI constraints!
+                mutableItem.set_rarity(5);      // Report as fake Pink (Classified)
+                mutableItem.set_def_index(4600); // Mask as an Operation Pass card to drop UI filters
             }
 
+            // SERIALIZE THE MUTATED COPY CONTAINER INSTEAD OF THE ORIGINAL
             object->add_object_data(mutableItem.SerializeAsString());
         }
 
