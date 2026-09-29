@@ -2163,3 +2163,22 @@ bool ItemSchema::GetSpecialTradeUpCandidates(std::string_view collectionName,
     outCandidates = it->second;
     return !outCandidates.empty();
 }
+uint32_t ItemSchema::RollRandomSpecialItem() const
+{
+    // Make sure the server actively populates the special pools map first!
+    BuildSpecialTradeUpPools();
+
+    // Loops through the mutable special pools map we fixed earlier
+    if (m_specialPoolByCollection.empty())
+    {
+        return 400; // Default fallback to a generic Knife DefIndex if maps are unbuilt
+    }
+
+    auto it = m_specialPoolByCollection.begin();
+    if (it != m_specialPoolByCollection.end() && !it->second.empty())
+    {
+        return it->second.front()->defIndex; // Grabs a clean item definition from your loaded schemas
+    }
+
+    return 400; // Generic fallback safety rail
+}
