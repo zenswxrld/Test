@@ -1352,7 +1352,7 @@ void ItemSchema::ParseLootLists(const KeyValue *lootListsKey, bool unusual)
                 if (unusual)
                 {
                     // override the quality here...
-                    item.quality = QualityUnusual;
+                    item.quality = ItemSchema::QualityUnusual
                 }
 
                 lootList.items.push_back(item);
@@ -2177,7 +2177,7 @@ uint32_t ItemSchema::RollRandomSpecialItem() const
     auto it = m_specialPoolByCollection.begin();
     if (it != m_specialPoolByCollection.end() && !it->second.empty())
     {
-        return it->second.front()->defIndex; // Grabs a clean item definition from your loaded schemas
+    return it->second.front()->itemInfo->m_defIndex; 
     }
 
     return 400; // Generic fallback safety rail
