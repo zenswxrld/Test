@@ -186,18 +186,17 @@ void Inventory::ToSingleObject(CMsgSOSingleObject &message, SOTypeId type, const
     message.set_type_id(type);
     message.mutable_owner_soid()->set_id(m_steamId);
 
-    // 1. Inspect the underlying class structure name safely using string matching
-    // (Bypasses non-polymorphic cast restrictions to verify the EconItem data schema layout)
+    // 1. Inspect the underlying network transmission package safely using reflection string matching
     if (object.GetTypeName() == "CSOEconItem")
     {
-        // Once the type name matches, a static cast is 100% safe and compiler-legal
         CSOEconItem &econItem = const_cast<CSOEconItem&>(static_cast<const CSOEconItem&>(object));
         
-        // INTERCEPTOR: Temporarily mask Covert (6) into Classified (5) over network streams
-        // This tricks the client-side Panorama UI completely, making your Red items show up!
+        // INTERCEPTOR MASK: If it's a true database Covert skin (6)
         if (econItem.rarity() == 6)
         {
-            econItem.set_rarity(5);
+            // Lie to the client's local Panorama rules so the grid unlocks
+            econItem.set_rarity(5); // Reports as Pink (Classified) over network streams
+            econItem.set_def_index(4600); // Temporarily report as an eligible pass card to bypass client-side filters!
         }
     }
 
@@ -3279,6 +3278,14 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
         debug.storedRarity = item.rarity();
         debug.quality = item.quality();
 
+        // 1. SERVER RESTORATION RAIL:
+        // Flag if a database Covert item (6) is found inside our input items loop body block
+        if (item.rarity() == 6)
+        {
+            hasCovertTradeUpInput = true;
+        }
+
+        // 2. Original item weapon properties validation parsing checks continue here safely INSIDE the loop:
         uint32_t paintKitDefIndex = 0;
         if (!GetItemPaintKitDefIndex(item, m_itemSchema, paintKitDefIndex))
         {
@@ -3286,17 +3293,15 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
                 itemId, item.def_index(), item.rarity(), item.quality());
             return false;
         }
+
         debug.paintKitDefIndex = paintKitDefIndex;
         uint32_t rarity = item.rarity();
         debug.paintedRarity = rarity;
+    } // <-- LINE 3305: THIS IS WHERE THE CLOSING BRACE FOR THE FOR LOOP ACTUALLY BELONGS!
 
-            if (rarity == 6)
+    // [5C] gold contract: covert (ancient) only. Standard contract: unchanged range.
+    if (goldContract)
     {
-        hasCovertTradeUpInput = true;
-    }
-        // [5C] gold contract: covert (ancient) only. Standard contract: unchanged range.
-        if (goldContract)
-        {
             if (rarity != ItemSchema::RarityAncient)
             {
                 printItemDebug("Gold trade-up requires covert inputs", debug);
