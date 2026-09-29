@@ -255,7 +255,7 @@ public:
     }; // <-- Must be completely AFTER this closing semi-colon
 
     // Rolls a random unusual/gold definition index (Knife/Glove) from your schema lists
-    uint32_t RollRandomSpecialItemFromCollection(const std::string &collectionId) const;
+     uint32_t RollRandomSpecialItemFromCollection(const std::string &collectionId) const;
 
     enum Quality
     {
