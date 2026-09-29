@@ -890,24 +890,23 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
         CMsgSOCacheSubscribed_SubscribedType *object = message.add_objects();
         object->set_type_id(SOTypeItem);
 
-        for (const auto &pair : m_items)
+               for (const auto &pair : m_items)
         {
             if (server && !pair.second.equipped_state_size())
             {
                 continue;
             }
 
-           CSOEconItem mutableItem = pair.second;
+            CSOEconItem mutableItem = pair.second;
             if (mutableItem.rarity() == 6)
             {
-                mutableItem.set_rarity(5);      // Mask network rarity profile color tag
-                mutableItem.set_def_index(4600); // Override def_index to drop client filter layers
-            }
-        }
-        
-        object->add_object_data(mutableItem.SerializeAsString());
-    } 
-} 
+                mutableItem.set_rarity(5);      
+                mutableItem.set_def_index(4600); 
+                   } // Line 905: Closes 'if (mutableItem.rarity() == 6)' - PERFECT, KEEP AS IS!
+
+         object->add_object_data(mutableItem.SerializeAsString());
+    }
+}
 
 {
     CSOPersonaDataPublic personaData;
