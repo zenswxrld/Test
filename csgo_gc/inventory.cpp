@@ -3176,24 +3176,19 @@ void Inventory::DestroyItem(ItemMap::iterator iterator, CMsgSOSingleObject &mess
 // Requires ItemSchema::GetSpecialTradeUpCandidates (see ItemSchema_gold_pool.cpp).
 // Everything else uses schema methods that already exist.
 
-bool hasCovertTradeUpInput = false;
-debug.paintedRarity = rarity;
-
-    // INTERCEPTOR: If the engine detects a Covert (Red) skin input, toggle our flag
-    if (rarity == 6)
-    {
-        hasCovertTradeUpInput = true;
-    }
 bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
     std::vector<CMsgSOSingleObject> &destroyItems,
     CMsgSOSingleObject &newItem,
     int16_t &responseRecipeIndex,
     CSOEconItem **outCraftedItem)
 {
+    // Cleanly define your tracking flag right at the top inside the function body!
+    bool hasCovertTradeUpInput = false;
+
     // [5C] two contract types, told apart by input count
     constexpr size_t StandardTradeUpCount = 10;
     constexpr size_t GoldTradeUpCount = 5;
-    constexpr uint32_t FirstKnifeGloveDefIndex = 500; // weapons are < 500, knives 500+, gloves 5027+
+    constexpr uint32_t FirstKnifeGloveDefIndex = 500;
 
     const size_t inputCount = inputItemIds.size();
     const bool goldContract = inputCount == GoldTradeUpCount;
