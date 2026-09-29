@@ -897,14 +897,13 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
                 continue;
             }
 
-            // Copy the asset container wrapper to temporarily override its properties over network lines
-            CSOEconItem mutableItem = pair.second;
+           CSOEconItem mutableItem = pair.second;
             if (mutableItem.rarity() == 6)
             {
-                mutableItem.set_rarity(5);      // Report as fake Pink (Classified)
-                mutableItem.set_def_index(4600); // Mask as an Operation Pass card to drop UI filters
+                mutableItem.set_rarity(5);      // Mask network rarity profile color tag
+                mutableItem.set_def_index(4600); // Override def_index to drop client filter layers
             }
-
+            
             // SERIALIZE THE MUTATED COPY CONTAINER INSTEAD OF THE ORIGINAL
             object->add_object_data(mutableItem.SerializeAsString());
         }
@@ -3208,7 +3207,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
     CSOEconItem **outCraftedItem)
 {
     // Cleanly define your tracking flag right at the top inside the function body!
-    bool hasCovertTradeUpInput = false;
+    hasCovertTradeUpInput = false;
 
     // [5C] two contract types, told apart by input count
     constexpr size_t StandardTradeUpCount = 10;
