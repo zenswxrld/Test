@@ -313,6 +313,7 @@ private:
     void ConsumeToolItem(uint64_t toolId, CMsgSOSingleObject &removalMsg);
 
     const uint64_t m_steamId;
+    bool hasCovertTradeUpInput;
     const int m_configuredPlayerLevel;
     const int m_configuredPlayerXp;
     int m_playerLevel;
