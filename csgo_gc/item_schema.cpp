@@ -2163,22 +2163,31 @@ bool ItemSchema::GetSpecialTradeUpCandidates(std::string_view collectionName,
     outCandidates = it->second;
     return !outCandidates.empty();
 }
-uint32_t ItemSchema::RollRandomSpecialItem() const
+uint32_t ItemSchema::RollRandomSpecialItemFromCollection(const std::string &collectionId) const
 {
-    // Make sure the server actively populates the special pools map first!
+    // 1. Actively build special lookup caches into RAM if unbuilt
     BuildSpecialTradeUpPools();
 
-    // Loops through the mutable special pools map we fixed earlier
-    if (m_specialPoolByCollection.empty())
-    {
-        return 400; // Default fallback to a generic Knife DefIndex if maps are unbuilt
-    }
-
-    auto it = m_specialPoolByCollection.begin();
+    // 2. Query the dynamic mutable map for the targeted case collection
+    auto it = m_specialPoolByCollection.find(collectionId);
     if (it != m_specialPoolByCollection.end() && !it->second.empty())
     {
-    return it->second.front()->itemInfo->m_defIndex; 
+        // Select a pseudo-random index strictly within the items assigned to this exact collection
+        size_t rolledIndex = rand() % it->second.size();
+        
+        // Return its accurate, inner definition index variable path
+        return it->second[rolledIndex]->itemInfo->m_defIndex;
     }
 
-    return 400; // Generic fallback safety rail
+    // 3. Global fallback safety rail if a custom collection container lacks unique unusual mappings
+    if (!m_specialPoolByCollection.empty())
+    {
+        auto fallbackIt = m_specialPoolByCollection.begin();
+        if (fallbackIt != m_specialPoolByCollection.end() && !fallbackIt->second.empty())
+        {
+            return fallbackIt->second.front()->itemInfo->m_defIndex;
+        }
+    }
+
+    return 400; // Hardcoded default knife definition ID backup safety fallback
 }
