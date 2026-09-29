@@ -182,8 +182,25 @@ void Inventory::ToSingleObject(CMsgSOSingleObject &message, SOTypeId type, const
 
     message.set_version(AdvanceVersion());
     message.mutable_owner_soid()->set_type(SoIdTypeSteamId);
-    message.mutable_owner_soid()->set_id(m_steamId);
 
+    message.set_type_id(type);
+        message.mutable_owner_soid()->set_id(m_steamId);
+
+    // 1. Check if the incoming protobuf structure is an EconItem type container
+    if (type == SoIdTypeEconItem)
+    {
+        // Safely cast the generic message reference to your mutable EconItem class
+        CSOEconItem &econItem = const_cast<CSOEconItem&>(static_cast<const CSOEconItem&>(object));
+        
+        // INTERCEPTOR: Temporarily change Covert (6) to Classified (5) over network streams
+        // so the client-side Panorama UI menu unlocks them as valid contract choices!
+        if (econItem.rarity() == 6)
+        {
+            econItem.set_rarity(5);
+        }
+    }
+
+    // 2. Finalize writing data arrays out to network payload buffers
     message.set_type_id(type);
     message.set_object_data(object.SerializeAsString());
 }
