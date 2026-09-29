@@ -3,6 +3,7 @@
 #include "config.h"
 #include "keyvalue.h"
 #include "random.h"
+#include <unordered_set>
 
 // ideally this would get parsed from the item schema...
 static uint32_t ItemRarityFromString(std::string_view name)
@@ -2011,4 +2012,154 @@ std::vector<uint32_t> ItemSchema::PrestigeMedalDefIndexes(uint32_t year) const
 
     std::sort(defIndexes.begin(), defIndexes.end());
     return defIndexes;
+}
+namespace
+{
+    // (def index, paint kit) identifies a skin; paint kit is 0 for vanilla knives
+    uint64_t PaintedItemKey(const LootListItem &item)
+    {
+        const uint32_t def = item.itemInfo ? item.itemInfo->m_defIndex : 0;
+        const uint32_t kit = item.paintKitInfo ? item.paintKitInfo->m_defIndex : 0;
+        return (static_cast<uint64_t>(def) << 32) | kit;
+    }
+
+    // Walk a crate's loot list tree, splitting entries into regular skins and
+    // "unusual" ones (knives/gloves).
+    void FlattenLootList(const LootList &list,
+        std::vector<const LootListItem *> &regular,
+        std::vector<const LootListItem *> &special,
+        std::unordered_set<const LootList *> &visited)
+    {
+        if (!visited.insert(&list).second)
+        {
+            return;
+        }
+
+        for (const LootListItem &item : list.items)
+        {
+            if (list.isUnusual || item.CaseRarity() == ItemSchema::RarityUnusual)
+            {
+                special.push_back(&item);
+            }
+            else
+            {
+                regular.push_back(&item);
+            }
+        }
+
+        for (const LootList *sub : list.subLists)
+        {
+            if (sub)
+            {
+                FlattenLootList(*sub, regular, special, visited);
+            }
+        }
+    }
+}
+
+// Collections and cases are linked through the skins: a case belongs to a
+// collection if the case's regular skins include the collection's skins. The
+// collection's gold pool is that case's unusual list. Built lazily on first use
+// so it always runs after the schema is fully loaded.
+void ItemSchema::BuildSpecialTradeUpPools() const
+{
+    if (m_specialPoolsBuilt)
+    {
+        return;
+    }
+    m_specialPoolsBuilt = true;
+
+    struct CratePool
+    {
+        std::unordered_set<uint64_t> regularKeys;
+        std::vector<const LootListItem *> special;
+    };
+
+    std::vector<CratePool> crates;
+    for (const auto &pair : m_itemInfo)
+    {
+        const ItemInfo &info = pair.second;
+        if (info.m_lootListName.empty())
+        {
+            continue;
+        }
+
+        const LootList *root = GetCrateLootList(info.m_defIndex);
+        if (!root)
+        {
+            continue;
+        }
+
+        std::vector<const LootListItem *> regular;
+        CratePool crate;
+        std::unordered_set<const LootList *> visited;
+        FlattenLootList(*root, regular, crate.special, visited);
+
+        // souvenir packages, sticker capsules etc. have no special items
+        if (crate.special.empty())
+        {
+            continue;
+        }
+
+        for (const LootListItem *item : regular)
+        {
+            crate.regularKeys.insert(PaintedItemKey(*item));
+        }
+        crates.push_back(std::move(crate));
+    }
+
+    for (const auto &pair : m_itemSets)
+    {
+        const ItemSet &set = pair.second;
+
+        std::vector<const LootListItem *> pool;
+        std::unordered_set<uint64_t> seen;
+
+        for (const CratePool &crate : crates)
+        {
+            bool linked = false;
+            for (const LootListItem &setItem : set.items)
+            {
+                if (crate.regularKeys.count(PaintedItemKey(setItem)))
+                {
+                    linked = true;
+                    break;
+                }
+            }
+
+            if (!linked)
+            {
+                continue;
+            }
+
+            // several crate defs can share a list, so dedupe
+            for (const LootListItem *special : crate.special)
+            {
+                if (seen.insert(PaintedItemKey(*special)).second)
+                {
+                    pool.push_back(special);
+                }
+            }
+        }
+
+        if (!pool.empty())
+        {
+            m_specialPoolByCollection.emplace(pair.first, std::move(pool));
+        }
+    }
+}
+
+bool ItemSchema::GetSpecialTradeUpCandidates(std::string_view collectionName,
+    std::vector<const LootListItem *> &outCandidates) const
+{
+    BuildSpecialTradeUpPools();
+
+    auto it = m_specialPoolByCollection.find(std::string(collectionName));
+    if (it == m_specialPoolByCollection.end())
+    {
+        return false;
+    }
+
+    outCandidates = it->second;
+    return !outCandidates.empty();
 }
