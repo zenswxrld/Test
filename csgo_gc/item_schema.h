@@ -222,6 +222,9 @@ public:
     std::string GetCollectionDisplayName(std::string_view collectionName) const;
     bool GetTradeUpCandidates(std::string_view collectionName, uint32_t outputRarity,
         std::vector<const LootListItem *> &outCandidates) const;
+// gold contract: knives/gloves obtainable from the case(s) tied to a collection
+    bool GetSpecialTradeUpCandidates(std::string_view collectionName,
+        std::vector<const LootListItem *> &outCandidates) const;
     uint32_t GetPaintedRarity(uint32_t defIndex, uint32_t paintKitDefIndex, uint32_t fallbackRarity) const;
     bool IsKeyToolDefIndex(uint32_t defIndex) const;
     bool IsNameTagToolDefIndex(uint32_t defIndex) const;
@@ -232,6 +235,8 @@ public:
     bool CanNameDefIndex(uint32_t defIndex) const;
     bool CanStatTrakSwapDefIndex(uint32_t defIndex) const;
     std::vector<uint32_t> PrestigeMedalDefIndexes(uint32_t year) const;
+    bool m_specialPoolsBuilt{};
+    std::unordered_map<std::string, std::vector<const LootListItem *>> m_specialPoolByCollection;
 
 
 public:
@@ -366,6 +371,7 @@ private:
     void ParseItemSets(const KeyValue *itemSetsKey);
     void ParseLootLists(const KeyValue *lootListsKey, bool unusual);
     void ParseRevolvingLootLists(const KeyValue *revolvingLootListsKey);
+    void BuildSpecialTradeUpPools() const;
 
     bool ParseLootListItem(LootListItem &item, std::string_view name);
     bool ApplyGeneratedAttributes(const ItemInfo &info, CSOEconItem &item) const;
