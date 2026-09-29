@@ -2165,7 +2165,6 @@ bool ItemSchema::GetSpecialTradeUpCandidates(std::string_view collectionName,
 }
 
 uint32_t ItemSchema::RollRandomSpecialItemFromCollection(const std::string &collectionId) const
-
 {
     BuildSpecialTradeUpPools();
 
