@@ -3611,12 +3611,35 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
         DestroyItem(it, destroy);
     }
 
-    // Force replace outputItem metadata to roll a random Gold (Knife/Glove) if inputs are Red
-    if (inputRarity == 6)
+     // 1. Force replace outputItem metadata to roll a random Gold (Knife/Glove) if inputs are Red
+    if (inputRarity == 6 || hasCovertTradeUpInput)
     {
         uint32_t goldDefIndex = m_itemSchema.RollRandomSpecialItem();
         outputItem.set_def_index(goldDefIndex);
-        outputItem.set_rarity(7); // Rarity 7 = Gold Special Item
+        outputItem.set_rarity(99); // Rarity 99 = Gold Special Item (RarityUnusual)
+
+        // STATTRAK INHERITANCE ENGINE WITH GLOVE PROTECTION RAIL
+        // Check if all 10 input ingredients were StatTrak skins
+        if (hasStatTrak)
+        {
+            // CS:GO Schema Rule: Weapons/Knives are under index 5027. Gloves are 5027+
+            // If the rolled definition index is a Knife, apply the Strange/StatTrak quality tag!
+            if (goldDefIndex < 5027)
+            {
+                outputItem.set_quality(ItemSchema::QualityStrange); // Sets item quality to StatTrak
+                
+                // Initialize the kill counter property block structure at zero
+                auto *killAttribute = outputItem.add_attribute();
+                killAttribute->set_def_index(ItemSchema::AttributeKillsTracker);
+                killAttribute->set_value_bytes(std::string("\x00\x00\x00\x00", 4)); // 32-bit integer 0 as bytes
+            }
+            else
+            {
+                // If it rolled a Glove (index >= 5027), clear the quality back to Normal
+                // to prevent item formatting errors or client crashes!
+                outputItem.set_quality(ItemSchema::QualityNormal);
+            }
+        }
     }
 
     ToSingleObject(newItem, outputItem);
