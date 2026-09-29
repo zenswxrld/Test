@@ -3623,37 +3623,32 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
      // 1. Force replace outputItem metadata to roll a random Gold (Knife/Glove) if inputs are Red
         if (inputRarity == 6 || hasCovertTradeUpInput)
     {
-        // Pass the string collection name parameter cleanly into your new method
         uint32_t goldDefIndex = m_itemSchema.RollRandomSpecialItemFromCollection(chosenCollection);
         outputItem.set_def_index(goldDefIndex);
-        outputItem.set_rarity(99); // Rarity 99 = Gold Special Item (RarityUnusual)
-        // ... [Your StatTrak module inheritance logic and glove protection loops below are untouched]
+        outputItem.set_rarity(99); // Rarity 99 = Gold Special Item
 
-        // STATTRAK INHERITANCE ENGINE WITH GLOVE PROTECTION RAIL
-        // Check if all 10 input ingredients were StatTrak skins
         if (hasStatTrak)
         {
-            // CS:GO Schema Rule: Weapons/Knives are under index 5027. Gloves are 5027+
-            // If the rolled definition index is a Knife, apply the Strange/StatTrak quality tag!
             if (goldDefIndex < 5027)
             {
-                outputItem.set_quality(ItemSchema::QualityStrange); // Sets item quality to StatTrak
-                
-                // Initialize the kill counter property block structure at zero
-                auto *killAttribute = outputItem.add_attribute();
-                killAttribute->set_def_index(80); // 80 is the explicit schema definition index for StatTrak Kills Counter
-                killAttribute->set_value_bytes(std::string("\x00\x00\x00\x00", 4)); // 32-bit integer 0 as bytes
+                outputItem.set_quality(ItemSchema::QualityStrange);
+                auto* killAttribute = outputItem.add_attribute();
+                killAttribute->set_def_index(80);
+                killAttribute->set_value_bytes(std::string("\x00\x00\x00\x00", 4));
             }
             else
             {
-                // If it rolled a Glove (index >= 5027), clear the quality back to Normal
-                // to prevent item formatting errors or client crashes!
                 outputItem.set_quality(ItemSchema::QualityNormal);
             }
         }
     }
 
+        message.set_type_id(type);
+        message.set_object_data(object.SerializeAsString());
+
     ToSingleObject(newItem, outputItem);
+    return true;
+    }
 
        // Fix the response recipe calculation right below ToSingleObject...
     if (inputRarity == 6)
