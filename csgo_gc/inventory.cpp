@@ -898,17 +898,19 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
             }
 
            CSOEconItem mutableItem = pair.second;
-            if (mutableItem.rarity() == 6)
-            {
-                mutableItem.set_rarity(5);      // Mask network rarity profile color tag
-                mutableItem.set_def_index(4600); // Override def_index to drop client filter layers
-            }
-            
-            // SERIALIZE THE MUTATED COPY CONTAINER INSTEAD OF THE ORIGINAL
-            object->add_object_data(mutableItem.SerializeAsString());
+        if (mutableItem.rarity() == 6)
+        {
+            mutableItem.set_rarity(5);      // Mask network rarity profile color tag
+            mutableItem.set_def_index(4600); // Override def_index to drop client filter layers
         }
+        
+        // SERIALIZE THE MUTATED COPY CONTAINER INSTEAD OF THE ORIGINAL
+        object->add_object_data(mutableItem.SerializeAsString());
+        }
+    }
+}
 
-    {
+{
         CSOPersonaDataPublic personaData;
         personaData.set_player_level(m_playerLevel);
         personaData.set_elevated_state(GetConfig().PrimeStatus());
@@ -3206,10 +3208,9 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
     int16_t &responseRecipeIndex,
     CSOEconItem **outCraftedItem)
 {
-    // Cleanly define your tracking flag right at the top inside the function body!
+    // Simply reference the class tracking member variable (NO 'bool' prefix word!)
     hasCovertTradeUpInput = false;
 
-    // [5C] two contract types, told apart by input count
     constexpr size_t StandardTradeUpCount = 10;
     constexpr size_t GoldTradeUpCount = 5;
     constexpr uint32_t FirstKnifeGloveDefIndex = 500;
