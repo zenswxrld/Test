@@ -184,18 +184,24 @@ void Inventory::ToSingleObject(CMsgSOSingleObject &message, SOTypeId type, const
     message.mutable_owner_soid()->set_type(SoIdTypeSteamId);
 
     message.set_type_id(type);
-        message.mutable_owner_soid()->set_id(m_steamId);
+    message.mutable_owner_soid()->set_id(m_steamId);
 
-    if (type == 1)
+    // 1. Inspect the underlying class structure name safely using string matching
+    // (Bypasses non-polymorphic cast restrictions to verify the EconItem data schema layout)
+    if (object.GetTypeName() == "CSOEconItem")
     {
+        // Once the type name matches, a static cast is 100% safe and compiler-legal
         CSOEconItem &econItem = const_cast<CSOEconItem&>(static_cast<const CSOEconItem&>(object));
         
+        // INTERCEPTOR: Temporarily mask Covert (6) into Classified (5) over network streams
+        // This tricks the client-side Panorama UI completely, making your Red items show up!
         if (econItem.rarity() == 6)
         {
             econItem.set_rarity(5);
         }
     }
 
+    // 2. Finalize writing data arrays out to network payload buffers
     message.set_type_id(type);
     message.set_object_data(object.SerializeAsString());
 }
