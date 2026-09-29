@@ -898,22 +898,21 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
             }
 
            CSOEconItem mutableItem = pair.second;
-        if (mutableItem.rarity() == 6)
-        {
-            mutableItem.set_rarity(5);      // Mask network rarity profile color tag
-            mutableItem.set_def_index(4600); // Override def_index to drop client filter layers
+            if (mutableItem.rarity() == 6)
+            {
+                mutableItem.set_rarity(5);      // Mask network rarity profile color tag
+                mutableItem.set_def_index(4600); // Override def_index to drop client filter layers
+            }
         }
         
-        // SERIALIZE THE MUTATED COPY CONTAINER INSTEAD OF THE ORIGINAL
         object->add_object_data(mutableItem.SerializeAsString());
-        }
-    }
-}
+    } 
+} 
 
 {
-        CSOPersonaDataPublic personaData;
-        personaData.set_player_level(m_playerLevel);
-        personaData.set_elevated_state(GetConfig().PrimeStatus());
+    CSOPersonaDataPublic personaData;
+    personaData.set_player_level(m_playerLevel);
+    personaData.set_elevated_state(GetConfig().PrimeStatus());
 
         CMsgSOCacheSubscribed_SubscribedType *object = message.add_objects();
         object->set_type_id(SOTypePersonaDataPublic);
