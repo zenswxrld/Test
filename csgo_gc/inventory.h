@@ -309,8 +309,7 @@ private:
     void EmbedStorageReference(CSOEconItem &item, uint64_t storageId);
     void StripStorageReference(CSOEconItem &item);
     bool ModifyStorageCounter(CSOEconItem &storage, int delta);
-
-    void ConsumeToolItem(uint64_t toolId, CMsgSOSingleObject &removalMsg);
+    void ConsumeToolItem(uint64_t toolId, CMsgSOSingleObject &rem);
 
     const uint64_t m_steamId;
     bool hasCovertTradeUpInput;
