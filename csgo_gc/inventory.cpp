@@ -3636,7 +3636,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
                 
                 // Initialize the kill counter property block structure at zero
                 auto *killAttribute = outputItem.add_attribute();
-                killAttribute->set_def_index(ItemSchema::AttributeKillsTracker);
+                killAttribute->set_def_index(80); // 80 is the explicit schema definition index for StatTrak Kills Counter
                 killAttribute->set_value_bytes(std::string("\x00\x00\x00\x00", 4)); // 32-bit integer 0 as bytes
             }
             else
