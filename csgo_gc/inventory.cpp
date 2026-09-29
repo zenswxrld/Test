@@ -3631,11 +3631,12 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
     }
 
      // 1. Force replace outputItem metadata to roll a random Gold (Knife/Glove) if inputs are Red
-    if (inputRarity == 6 || hasCovertTradeUpInput)
+        if (inputRarity == 6 || hasCovertTradeUpInput)
     {
+        // Pass the string collection name parameter cleanly into your new method
         uint32_t goldDefIndex = m_itemSchema.RollRandomSpecialItemFromCollection(chosenCollection);
         outputItem.set_def_index(goldDefIndex);
-        outputItem.set_rarity(99); 
+        outputItem.set_rarity(99); // Rarity 99 = Gold Special Item (RarityUnusual)
         // ... [Your StatTrak module inheritance logic and glove protection loops below are untouched]
 
         // STATTRAK INHERITANCE ENGINE WITH GLOVE PROTECTION RAIL
