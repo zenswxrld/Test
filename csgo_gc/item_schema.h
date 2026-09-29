@@ -235,9 +235,8 @@ public:
     bool CanNameDefIndex(uint32_t defIndex) const;
     bool CanStatTrakSwapDefIndex(uint32_t defIndex) const;
     std::vector<uint32_t> PrestigeMedalDefIndexes(uint32_t year) const;
-    bool m_specialPoolsBuilt{};
-    std::unordered_map<std::string, std::vector<const LootListItem *>> m_specialPoolByCollection;
-
+    mutable bool m_specialPoolsBuilt = false;
+    mutable std::unordered_map<std::string, std::vector<const LootListItem *>> m_specialPoolByCollection;
 
 public:
     // these could be parsed from the item schema but reduce code complexity by hardcoding them
