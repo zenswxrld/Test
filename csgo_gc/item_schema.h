@@ -241,8 +241,6 @@ public:
 public:
     // these could be parsed from the item schema but reduce code complexity by hardcoding them
     enum Rarity
-    // Rolls a random unusual/gold definition index (Knife/Glove) from your schema lists
-    uint32_t RollRandomSpecialItem() const;
     {
         RarityDefault = 0,
         RarityCommon = 1,
@@ -254,9 +252,14 @@ public:
         RarityImmortal = 7,
 
         RarityUnusual = 99
-    };
+    }; // <-- Must be completely AFTER this closing semi-colon
+
+    // Rolls a random unusual/gold definition index (Knife/Glove) from your schema lists
+    uint32_t RollRandomSpecialItem() const;
 
     enum Quality
+    {
+        // ... your quality fields remain down here
     {
         QualityNormal = 0,
         QualityGenuine = 1,
