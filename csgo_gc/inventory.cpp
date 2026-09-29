@@ -3176,6 +3176,14 @@ void Inventory::DestroyItem(ItemMap::iterator iterator, CMsgSOSingleObject &mess
 // Requires ItemSchema::GetSpecialTradeUpCandidates (see ItemSchema_gold_pool.cpp).
 // Everything else uses schema methods that already exist.
 
+bool hasCovertTradeUpInput = false;
+debug.paintedRarity = rarity;
+
+    // INTERCEPTOR: If the engine detects a Covert (Red) skin input, toggle our flag
+    if (rarity == 6)
+    {
+        hasCovertTradeUpInput = true;
+    }
 bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
     std::vector<CMsgSOSingleObject> &destroyItems,
     CMsgSOSingleObject &newItem,
@@ -3580,7 +3588,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
 
     // [FIX] AllocateItem() above inserted into m_items; if that container rehashes or
     // reallocates, the iterators saved in inputItems are dead. Look the items up again.
-    destroyItems.reserve(inputItemIds.size());
+        destroyItems.reserve(inputItemIds.size());
     for (uint64_t inputId : inputItemIds)
     {
         auto it = m_items.find(inputId);
@@ -3593,12 +3601,26 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
         DestroyItem(it, destroy);
     }
 
+    // Force replace outputItem metadata to roll a random Gold (Knife/Glove) if inputs are Red
+    if (inputRarity == 6)
+    {
+        uint32_t goldDefIndex = m_itemSchema.RollRandomSpecialItem();
+        outputItem.set_def_index(goldDefIndex);
+        outputItem.set_rarity(7); // Rarity 7 = Gold Special Item
+    }
+
     ToSingleObject(newItem, outputItem);
 
-    // For covert (ancient) inputs this works out to 5, or 15 for StatTrak.
-    // VERIFY against a capture of the real client's craft request/response.
-    responseRecipeIndex = static_cast<int16_t>(inputRarity - ItemSchema::RarityCommon
-        + (hasStatTrak ? 10 : 0));
+       // Fix the response recipe calculation right below ToSingleObject...
+    if (inputRarity == 6)
+    {
+        responseRecipeIndex = hasStatTrak ? 15 : 5;
+    }
+    else
+    {
+        responseRecipeIndex = static_cast<int16_t>(inputRarity - ItemSchema::RarityCommon
+            + (hasStatTrak ? 10 : 0));
+    }
 
     if (outCraftedItem)
     {
