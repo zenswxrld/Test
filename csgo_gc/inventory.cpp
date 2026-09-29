@@ -900,20 +900,16 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
             CSOEconItem mutableItem = pair.second;
             if (mutableItem.rarity() == 6)
             {
-                mutableItem.set_rarity(5);      
-                mutableItem.set_def_index(4600); 
+                mutableItem.set_rarity(5);
+                mutableItem.set_def_index(4600);
             }
 
             object->add_object_data(mutableItem.SerializeAsString());
-        } 
-    } 
+        }
+    }
 
-    {
         CSOPersonaDataPublic personaData;
-
-{
-    CSOPersonaDataPublic personaData;
-    personaData.set_player_level(m_playerLevel);
+        personaData.set_player_level(m_playerLevel);
     personaData.set_elevated_state(GetConfig().PrimeStatus());
 
         CMsgSOCacheSubscribed_SubscribedType *object = message.add_objects();
@@ -3338,16 +3334,16 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
             return false;
         }
     }
-        std::vector<std::string> collections;
-        if (!m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections))
+    std::vector<std::string> collections;
+        if (m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections) == false)
+    {
+        if (m_itemSchema.GetCollectionsForPaintKit(paintKitDefIndex, collections) == false)
         {
-            if (!m_itemSchema.GetCollectionsForPaintKit(paintKitDefIndex, collections))
-            {
-                Platform::Print("Trade-up item %llu has no collection mapping (def %u, paint %u, stored rarity %u, painted rarity %u, quality %u)\n",
-                    itemId, item.def_index(), paintKitDefIndex, item.rarity(), rarity, item.quality());
-                return false;
-            }
+            Platform::Print("Trade-up item %llu has no collection mapping (def %u, paint %u, stored rarity %u, painted rarity %u, quality %u)\n",
+                itemId, item.def_index(), paintKitDefIndex, item.rarity(), rarity, item.quality());
+            return false;
         }
+    }
 
         // [FIX] a "successful" lookup can still return an empty list; front() on it is UB
         if (collections.empty())
