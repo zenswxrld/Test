@@ -259,8 +259,6 @@ public:
 
     enum Quality
     {
-        // ... your quality fields remain down here
-    {
         QualityNormal = 0,
         QualityGenuine = 1,
         QualityVintage = 2,
