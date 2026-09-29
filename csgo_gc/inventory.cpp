@@ -3269,7 +3269,15 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
             return false;
         }
         debug.paintKitDefIndex = paintKitDefIndex;
-
+        uint32_t rarity = m_itemSchema.GetPaintedRarity(item.def_index(), paintKitDefIndex);
+    debug.paintedRarity = rarity;
+        if (rarity == 6)
+    {
+        hasCovertTradeUpInput = true;
+    }
+{
+    hasCovertTradeUpInput = true;
+}
         uint32_t rarity = m_itemSchema.GetPaintedRarity(item.def_index(), paintKitDefIndex, item.rarity());
         debug.paintedRarity = rarity;
 
