@@ -888,7 +888,7 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
 
     
         CMsgSOCacheSubscribed_SubscribedType* object = message.add_objects(); 
-        object->set_type_id(SOTypeEconItem);
+        object->set_type_id(ESharedObjectTypes::SOTypeEconItem);
 
         for (const auto& pair : m_items)
         {
@@ -947,7 +947,7 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
         accountClient.set_bonus_xp_usedflags(16); // caught cheater lobbies, overwatch bonus etc
         accountClient.set_elevated_state(GetConfig().PrimeStatus() ? ElevatedStatePrime : ElevatedStateNo);
 
-        CMsgSOCacheSubscribed_SubscribedType *object = message.add_objects();
+        object = message.add_objects();
         object->set_type_id(SOTypeGameAccountClient);
         object->add_object_data(accountClient.SerializeAsString());
     }
@@ -2487,7 +2487,7 @@ void Inventory::LogInventoryConsistency() const
 
             std::vector<std::string> collections;
             if (!m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections)
-                && !m_itemSchema.GetCollectionsForPaintKit(paintKitDefIndex, collections))
+                && !m_itemSchema.inventory->m_itemSchema(paintKitDefIndex, collections))
             {
                 issueCount++;
                 Platform::Print("InventoryCheck: painted item %llu has no collection mapping (def %u, paint %u)\n",
@@ -3245,10 +3245,12 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
         std::string collectionId;
     };
 
+        float avgWear = 0.0f;
+
         bool hasKillEater = false;
         bool hasNonWeaponScoreType = false;
 
-         goldContract = false;
+        bool isGoldContract = goldContract;
          hasCovertTradeUpInput = false;
          hasStatTrak = false;
 
@@ -3263,19 +3265,18 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
             debug.paintedRarity,
             debug.quality,
             debug.collectionId.c_str(),
-            GetCollectionName(ItemSchema::Get(), debug.collectionId).c_str());
+            GetCollectionName(inventory->m_itemSchema, debug.collectionId).c_str());
     }; 
 
-    for (uint64_t itemId : itemIds)
+    for (size_t i = 0; i < inputItemIds.size(); i++)
     {
+        uint64_t itemId = inputItemIds[i];
+
         if (!uniqueInputItemIds.insert(itemId).second)
         {
             Platform::Print("Trade-up item %llu was submitted more than once\n", itemId);
             return false;
         }
-
-        for (uint64_t itemId : inputItemIds)
-        { 
             auto it = m_items.find(itemId);
             if (it == m_items.end()) // Line 3278: THIS WILL NOW COMPILE PERFECTLY!
             {
@@ -3334,6 +3335,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
 
         if (rarity == 6)
         {
+            isGoldContract = true; 
             hasCovertTradeUpInput = true;
         }
         else if (rarity != inputRarity)
@@ -3345,9 +3347,9 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
 
 
             std::vector<std::string> collections;
-            if (m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections) == false)
+            if (inventory->m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections) == false)
             {
-                if (ItemSchema::Get().GetCollectionsForPaintKit(paintKitDefIndex, collections) == false)
+                if (inventory->m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections) == false)
                 {
                     Platform::Print("Trade-up item %llu has no collection mapping (def %u, paint %u, stored rarity %u, painted rarity %u, quality %u)\n",
                         itemId, item.def_index(), paintKitDefIndex, item.rarity(), rarity, item.quality());
@@ -3369,10 +3371,11 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
             collectionCounts[collectionId]++;
 
             printItemDebug("Trade-up input", debug);
+            uint32_t outputRarity = 0;
 
             bool hasWear = false;
-            bool hasKillEater = false;
-            bool hasNonWeaponScoreType = false; // [FIX] only a NON-zero score type disqualifies
+            hasKillEater = false;
+            hasNonWeaponScoreType = false;
             for (const CSOEconItemAttribute& attr : item.attribute())
             {
                 if (attr.def_index() == ItemSchema::AttributeKillEater)
@@ -3451,26 +3454,24 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
         float avgWear = 0.15f;
         if (wearCount > 0)
         {
-            avgWear = totalWear / wearCount;
+            avgWear = totalWear / 10.0f;
             if (avgWear < 0.0f) avgWear = 0.0f;
             if (avgWear > 1.0f) avgWear = 1.0f;
         }
     }
 
-        // [5C] gold outputs are not "input rarity + 1"; they come from the special list
-        uint32_t outputRarity = goldContract ? 99 : inputRarity + 1;
-        if (!goldContract && outputRarity > ItemSchema::RarityAncient)
+        outputRarity = isGoldContract ? 99 : inputRarity + 1;
+        if (!isgoldContract && outputRarity > ItemSchema::RarityAncient)
         {
             Platform::Print("Cannot trade up items of rarity %u (max output is ancient)\n", inputRarity);
             return false;
         }
 
-        // [5C] one place that decides where output candidates come from
         auto getCandidates = [&](const std::string& collection, std::vector<const LootListItem*>& out) -> bool
         {
-            bool ok = goldContract
-                ? m_ItemSchema.GetSpecialTradeUpCandidates(collection, out)
-                : m_ItemSchema.GetTradeUpCandidates(collection, outputRarity, out);
+            bool ok = isGoldContract
+                ? inventory->m_itemSchema.GetSpecialTradeUpCandidates(collection, out)
+                : inventory->m_itemSchema.GetTradeUpCandidates(collection, outputRarity, out);
             return ok && !out.empty();
         };
 
@@ -3479,20 +3480,20 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
     {
         const std::string& collection = pair.first;
         std::vector<const LootListItem*> candidates;
-        if (!GetCandidates(collection, candidates))
+        if (!getCandidates(collection, candidates))
         {
-            Platform::Print("%s Collection has no trade-up candidates...\n", ...);
+            Platform::Print("%s Collection has no trade-up candidates...\n", collection.c_str());
             return false;
         }
 
-        int count = pair.second; // Line 3479: 'pair' will now be 100% valid!
+        int count = pair.second;
         for (int i = 0; i < count; i++)
         {
             weightedCollections.push_back(collection);
         }
 
         float percentage = (float)count / (float)inputItemIds.size() * 100.0f;
-        Platform::Print("%s Collection: %.1f%%\n", GetCollectionName(m_ItemSchema, collection).c_str(), percentage);
+        Platform::Print("%s Collection: %.1f%%\n", GetCollectionName(inventory->m_itemSchema, collection).c_str(), percentage);
     } 
 
 }
@@ -3503,12 +3504,13 @@ if (weightedCollections.empty()) // Line 3490: This will now evaluate perfectly!
         return false;
     }
 
-    uint32_t roll = m_random.Integer<uint32_t>(0, static_cast<uint32_t>(weightedCollections.size() - 1));
-    const std::string &selectedCollection = weightedCollections[roll];
-    Platform::Print("RNG roll: %u, selected collection %s (%s)\n", roll, selectedCollection.c_str(),
-        GetCollectionName(m_itemSchema, selectedCollection).c_str());
+size_t roll = rand() % weightedCollections.size();
+const std::string& selectedCollection = weightedCollections[roll];
+Platform::Print("RNG roll: %zu, selected collection %s\n", roll, selectedCollection.c_str());
 
-    if (!getCandidates(selectedCollection, outputCandidates))
+std::vector<const LootListItem*> outputCandidates;
+
+    if (!GetCandidates(selectedCollection, outputCandidates))
     {
         Platform::Print("No trade-up candidates for collection %s at rarity %u\n",
             selectedCollection.c_str(), outputRarity);
@@ -3518,16 +3520,17 @@ if (weightedCollections.empty()) // Line 3490: This will now evaluate perfectly!
     std::vector<const LootListItem*> validCandidates;
     validCandidates.reserve(outputCandidates.size());
 
-    for (const LootListItem *candidate : outputCandidates)
+    for (size_t j = 0; j < outputCandidates.size(); j++)
     {
-        // [5C] vanilla knives have no paint kit, so only the gold path may keep those
+        const LootListItem* candidate = outputCandidates[j];
+        
         if (!candidate || !candidate->itemInfo)
         {
             continue;
         }
         if (!candidate->paintKitInfo)
         {
-            if (goldContract)
+            if (isGoldContract)
             {
                 validCandidates.push_back(candidate);
             }
