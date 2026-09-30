@@ -232,7 +232,7 @@ const CSOEconItem *Inventory::GetItem(uint64_t itemId) const
 
 std::string Inventory::GetCustomName(const CSOEconItem &item) const
 {
-    std::string name = GetCustomNameAttribute(m_itemSchema, item);
+    std::string name = GetCustomNameAttribute(pInventory->m_itemSchema, item);
     return name.empty() ? item.custom_name() : name;
 }
 
@@ -273,7 +273,7 @@ const CSOAccountSeasonalOperation *Inventory::GetSeasonalOperation(uint32_t seas
 
 std::optional<Inventory::PrestigeMedalPlan> Inventory::GetPrestigeMedalPlan(uint32_t year) const
 {
-    std::vector<uint32_t> defIndexes = m_itemSchema.PrestigeMedalDefIndexes(year);
+    std::vector<uint32_t> defIndexes = pInventory->m_itemSchema.PrestigeMedalDefIndexes(year);
     if (defIndexes.empty())
     {
         return std::nullopt;
@@ -448,7 +448,7 @@ CSOEconItem &Inventory::CreateItem(const CSOEconItem &copyFrom)
 CSOEconItem &Inventory::CreateItem(uint32_t defIndex, ItemOrigin origin, UnacknowledgedType unacknowledgedType)
 {
     CSOEconItem &item = AllocateItem(0);
-    m_itemSchema.CreateItem(defIndex, origin, unacknowledgedType, item);
+    m_itemSchempInventory->m_itemSchemaa.CreateItem(defIndex, origin, unacknowledgedType, item);
     return item;
 }
 
@@ -686,23 +686,23 @@ void Inventory::ReadItem(const KeyValue &itemKey, CSOEconItem &item) const
 
             uint32_t defIndex = FromString<uint32_t>(attributeKey.Name());
             attribute->set_def_index(defIndex);
-            m_itemSchema.SetAttributeString(attribute, attributeKey.String());
+            pInventory->m_itemSchema.SetAttributeString(attribute, attributeKey.String());
         }
     }
 
     // Migrate inventories written before custom names were stored as attributes.
-    if (GetCustomNameAttribute(m_itemSchema, item).empty())
+    if (GetCustomNameAttribute(pInventory->m_itemSchema, item).empty())
     {
         std::string_view name = itemKey.GetString("custom_name");
         if (name.size())
         {
-            SetCustomNameAttribute(m_itemSchema, item, name);
+            SetCustomNameAttribute(pInventory->m_itemSchema, item, name);
         }
     }
 
     uint32_t paintKitDefIndex = 0;
     if (item.quality() == ItemSchema::QualityNormal
-        && GetItemPaintKitDefIndex(item, m_itemSchema, paintKitDefIndex))
+        && GetItemPaintKitDefIndex(item, pInventory->m_itemSchema, paintKitDefIndex))
     {
         item.set_quality(ItemSchema::QualityUnique);
     }
@@ -888,7 +888,7 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
 
     
         CMsgSOCacheSubscribed_SubscribedType* object = message.add_objects(); 
-        object->set_type_id(SOTypeEconItem);
+        object->set_type_id(SOType_EconItem);
 
         for (const auto& pair : m_items)
         {
@@ -1187,13 +1187,13 @@ bool Inventory::UseItem(uint64_t itemId, UseItemResult &result)
     }
 
     if (std::optional<TournamentAccessInfo> access
-        = m_itemSchema.TournamentAccessByDefIndex(it->second.def_index()))
+        = pInventory->m_itemSchema.TournamentAccessByDefIndex(it->second.def_index()))
     {
         return ActivateTournamentAccessItem(it, *access, result);
     }
 
     if (std::optional<SeasonPassInfo> pass
-        = m_itemSchema.SeasonPassByDefIndex(it->second.def_index()))
+        = pInventory->m_itemSchema.SeasonPassByDefIndex(it->second.def_index()))
     {
         return ActivateSeasonPassItem(it, *pass, result);
     }
@@ -1217,7 +1217,7 @@ bool Inventory::UseItem(uint64_t itemId, UseItemResult &result)
     // remove this to have unlimited sprays
     CSOEconItemAttribute *attribute = unsealed.add_attribute();
     attribute->set_def_index(ItemSchema::AttributeSpraysRemaining);
-    m_itemSchema.SetAttributeUint32(attribute, 50);
+    pInventory->m_itemSchema.SetAttributeUint32(attribute, 50);
 
     // set notification
     result.notification.add_item_id(unsealed.id());
@@ -1231,7 +1231,7 @@ bool Inventory::SelectSeasonalMissionCard(uint32_t seasonValue,
 {
     auto operation = m_seasonalOperations.find(seasonValue);
     if (operation == m_seasonalOperations.end()
-        || !m_itemSchema.IsSeasonalMissionCard(seasonValue, missionCardId))
+        || !pInventory->m_itemSchema.IsSeasonalMissionCard(seasonValue, missionCardId))
     {
         return false;
     }
@@ -1343,7 +1343,7 @@ bool Inventory::ActivateTournamentAccessItem(ItemMap::iterator accessItem,
         {
             CSOEconItemAttribute *purchased = FindOrAddAttribute(created,
                 ItemSchema::AttributeOperationDropsAwardedPurchased);
-            m_itemSchema.SetAttributeUint32(purchased, access.includedTokens);
+            pInventory->m_itemSchema.SetAttributeUint32(purchased, access.includedTokens);
         }
 
         result.itemChange = UseItemChange::Create;
@@ -1356,19 +1356,19 @@ bool Inventory::ActivateTournamentAccessItem(ItemMap::iterator accessItem,
         uint32_t tokenCount = 0;
         if (purchased)
         {
-            tokenCount = m_itemSchema.AttributeUint32(purchased);
+            tokenCount = pInventory->m_itemSchema.AttributeUint32(purchased);
         }
         else
         {
             purchased = FindOrAddAttribute(journal->second,
                 ItemSchema::AttributeOperationDropsAwardedPurchased);
-            m_itemSchema.SetAttributeUint32(purchased, 0);
+            pInventory->m_itemSchema.SetAttributeUint32(purchased, 0);
         }
         if (tokenCount == UINT32_MAX)
         {
             return false;
         }
-        m_itemSchema.SetAttributeUint32(purchased, tokenCount + 1);
+        pInventory->m_itemSchema.SetAttributeUint32(purchased, tokenCount + 1);
         result.itemChange = UseItemChange::Update;
     }
 
@@ -1421,14 +1421,14 @@ bool Inventory::UnlockCrate(uint64_t crateId,
             return false;
         }
 
-        if (!m_itemSchema.IsKeyToolDefIndex(key->second.def_index()))
+        if (!pInventory->m_itemSchema.IsKeyToolDefIndex(key->second.def_index()))
         {
             Platform::Print("UnlockCrate: item %llu def %u is not a key tool for crate %llu\n",
                 keyId, key->second.def_index(), crateId);
             return false;
         }
 
-        if (!m_itemSchema.IsKeyCompatibleWithCrate(key->second.def_index(), crate->second.def_index()))
+        if (!pInventory->m_itemSchema.IsKeyCompatibleWithCrate(key->second.def_index(), crate->second.def_index()))
         {
             Platform::Print("UnlockCrate: key item %llu def %u is not compatible with crate %llu def %u\n",
                 keyId, key->second.def_index(), crateId, crate->second.def_index());
@@ -1437,7 +1437,7 @@ bool Inventory::UnlockCrate(uint64_t crateId,
     }
 
     // CASE OPENING
-    CaseOpening caseOpening{ m_itemSchema, m_random };
+    CaseOpening caseOpening{ pInventory->m_itemSchema, m_random };
 
     CSOEconItem temp;
     if (!caseOpening.SelectItemFromCrate(crate->second, temp))
@@ -1488,7 +1488,7 @@ bool Inventory::OpenStatTrakSwapToolBundle(uint64_t bundleId,
         return false;
     }
 
-    if (!m_itemSchema.ItemInfoByDefIndex(ItemSchema::ItemStatTrakSwapTool))
+    if (!pInventory->m_itemSchema.ItemInfoByDefIndex(ItemSchema::ItemStatTrakSwapTool))
     {
         Platform::Print("OpenStatTrakSwapToolBundle: StatTrak Swap Tool definition is missing\n");
         return false;
@@ -1527,7 +1527,7 @@ bool Inventory::OpenSouvenirPackage(uint64_t packageId,
         return false;
     }
 
-    SouvenirOpening souvenirOpening{ m_itemSchema, m_random };
+    SouvenirOpening souvenirOpening{ pInventory->m_itemSchema, m_random };
 
     CSOEconItem temp;
     if (!souvenirOpening.OpenPackage(package->second, temp))
@@ -1591,7 +1591,7 @@ void Inventory::ItemToPreviewDataBlock(const CSOEconItem &item, CEconItemPreview
     block.set_defindex(item.def_index());
     block.set_rarity(item.rarity());
     block.set_quality(item.quality());
-    block.set_customname(GetCustomNameAttribute(m_itemSchema, item));
+    block.set_customname(GetCustomNameAttribute(pInventory->m_itemSchema, item));
     block.set_inventory(item.inventory());
     block.set_origin(item.origin());
 
@@ -1603,134 +1603,134 @@ void Inventory::ItemToPreviewDataBlock(const CSOEconItem &item, CEconItemPreview
         switch (defIndex)
         {
         case ItemSchema::AttributeTexturePrefab:
-            block.set_paintindex(m_itemSchema.AttributeUint32(&attribute));
+            block.set_paintindex(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeTextureSeed:
-            block.set_paintseed(m_itemSchema.AttributeUint32(&attribute));
+            block.set_paintseed(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeTextureWear:
         {
-            int wearLevel = ItemWearLevel(m_itemSchema.AttributeFloat(&attribute));
+            int wearLevel = ItemWearLevel(pInventory->m_itemSchema.AttributeFloat(&attribute));
             block.set_paintwear(wearLevel);
             break;
         }
 
         case ItemSchema::AttributeKillEater:
-            block.set_killeatervalue(m_itemSchema.AttributeUint32(&attribute));
+            block.set_killeatervalue(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeKillEaterScoreType:
-            block.set_killeaterscoretype(m_itemSchema.AttributeUint32(&attribute));
+            block.set_killeaterscoretype(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeMusicId:
-            block.set_musicindex(m_itemSchema.AttributeUint32(&attribute));
+            block.set_musicindex(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeQuestId:
-            block.set_questid(m_itemSchema.AttributeUint32(&attribute));
+            block.set_questid(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeSprayTintId:
-            stickers[0].set_tint_id(m_itemSchema.AttributeUint32(&attribute));
+            stickers[0].set_tint_id(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeStickerId0:
-            stickers[0].set_sticker_id(m_itemSchema.AttributeUint32(&attribute));
+            stickers[0].set_sticker_id(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeStickerWear0:
-            stickers[0].set_wear(m_itemSchema.AttributeFloat(&attribute));
+            stickers[0].set_wear(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerScale0:
-            stickers[0].set_scale(m_itemSchema.AttributeFloat(&attribute));
+            stickers[0].set_scale(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerRotation0:
-            stickers[0].set_rotation(m_itemSchema.AttributeFloat(&attribute));
+            stickers[0].set_rotation(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerId1:
-            stickers[1].set_sticker_id(m_itemSchema.AttributeUint32(&attribute));
+            stickers[1].set_sticker_id(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeStickerWear1:
-            stickers[1].set_wear(m_itemSchema.AttributeFloat(&attribute));
+            stickers[1].set_wear(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerScale1:
-            stickers[1].set_scale(m_itemSchema.AttributeFloat(&attribute));
+            stickers[1].set_scale(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerRotation1:
-            stickers[1].set_rotation(m_itemSchema.AttributeFloat(&attribute));
+            stickers[1].set_rotation(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerId2:
-            stickers[2].set_sticker_id(m_itemSchema.AttributeUint32(&attribute));
+            stickers[2].set_sticker_id(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeStickerWear2:
-            stickers[2].set_wear(m_itemSchema.AttributeFloat(&attribute));
+            stickers[2].set_wear(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerScale2:
-            stickers[2].set_scale(m_itemSchema.AttributeFloat(&attribute));
+            stickers[2].set_scale(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerRotation2:
-            stickers[2].set_rotation(m_itemSchema.AttributeFloat(&attribute));
+            stickers[2].set_rotation(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerId3:
-            stickers[3].set_sticker_id(m_itemSchema.AttributeUint32(&attribute));
+            stickers[3].set_sticker_id(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeStickerWear3:
-            stickers[3].set_wear(m_itemSchema.AttributeFloat(&attribute));
+            stickers[3].set_wear(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerScale3:
-            stickers[3].set_scale(m_itemSchema.AttributeFloat(&attribute));
+            stickers[3].set_scale(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerRotation3:
-            stickers[3].set_rotation(m_itemSchema.AttributeFloat(&attribute));
+            stickers[3].set_rotation(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerId4:
-            stickers[4].set_sticker_id(m_itemSchema.AttributeUint32(&attribute));
+            stickers[4].set_sticker_id(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeStickerWear4:
-            stickers[4].set_wear(m_itemSchema.AttributeFloat(&attribute));
+            stickers[4].set_wear(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerScale4:
-            stickers[4].set_scale(m_itemSchema.AttributeFloat(&attribute));
+            stickers[4].set_scale(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerRotation4:
-            stickers[4].set_rotation(m_itemSchema.AttributeFloat(&attribute));
+            stickers[4].set_rotation(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerId5:
-            stickers[5].set_sticker_id(m_itemSchema.AttributeUint32(&attribute));
+            stickers[5].set_sticker_id(pInventory->m_itemSchema.AttributeUint32(&attribute));
             break;
 
         case ItemSchema::AttributeStickerWear5:
-            stickers[5].set_wear(m_itemSchema.AttributeFloat(&attribute));
+            stickers[5].set_wear(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerScale5:
-            stickers[5].set_scale(m_itemSchema.AttributeFloat(&attribute));
+            stickers[5].set_scale(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
 
         case ItemSchema::AttributeStickerRotation5:
-            stickers[5].set_rotation(m_itemSchema.AttributeFloat(&attribute));
+            stickers[5].set_rotation(pInventory->m_itemSchema.AttributeFloat(&attribute));
             break;
         }
     }
@@ -1830,14 +1830,14 @@ bool Inventory::ApplySticker(const CMsgApplySticker &message,
 
     if (sticker->second.def_index() == ItemSchema::ItemPatch)
     {
-        if (!m_itemSchema.CanApplyPatchToDefIndex(targetDefIndex))
+        if (!pInventory->m_itemSchema.CanApplyPatchToDefIndex(targetDefIndex))
         {
             Platform::Print("ApplySticker: patch item %llu cannot be applied to target def %u (target item %llu)\n",
                 message.sticker_item_id(), targetDefIndex, message.item_item_id());
             return false;
         }
     }
-    else if (!m_itemSchema.CanApplyStickerToDefIndex(targetDefIndex))
+    else if (!pInventory->m_itemSchema.CanApplyStickerToDefIndex(targetDefIndex))
     {
         Platform::Print("ApplySticker: sticker item %llu cannot be applied to target def %u (target item %llu)\n",
             message.sticker_item_id(), targetDefIndex, message.item_item_id());
@@ -1859,7 +1859,7 @@ bool Inventory::ApplySticker(const CMsgApplySticker &message,
     {
         if (attribute.def_index() == ItemSchema::AttributeStickerId0)
         {
-            stickerKit = m_itemSchema.AttributeUint32(&attribute);
+            stickerKit = pInventory->m_itemSchema.AttributeUint32(&attribute);
             break;
         }
     }
@@ -1878,14 +1878,14 @@ bool Inventory::ApplySticker(const CMsgApplySticker &message,
     // add the sticker id attribute
     CSOEconItemAttribute *attribute = item->add_attribute();
     attribute->set_def_index(attributeStickerId);
-    m_itemSchema.SetAttributeUint32(attribute, stickerKit);
+    pInventory->m_itemSchema.SetAttributeUint32(attribute, stickerKit);
 
     // add the sticker wear attribute if this is not a patch
     if (sticker->second.def_index() != ItemSchema::ItemPatch)
     {
         attribute = item->add_attribute();
         attribute->set_def_index(attributeStickerWear);
-        m_itemSchema.SetAttributeFloat(attribute, 0);
+        pInventory->m_itemSchema.SetAttributeFloat(attribute, 0);
     }
 
     ToSingleObject(update, *item);
@@ -1959,7 +1959,7 @@ bool Inventory::ScrapeSticker(const CMsgApplySticker &message,
     {
         // TODO: randomize wear increment instead of using fixed 1/9 step
         float wearIncrement = 1.0f / 9;
-        wearLevel = m_itemSchema.AttributeFloat(wearAttribute) + wearIncrement;
+        wearLevel = pInventory->m_itemSchema.AttributeFloat(wearAttribute) + wearIncrement;
     }
 
     // if the wear attribute is not present, remove it outright (patches)
@@ -1997,7 +1997,7 @@ bool Inventory::ScrapeSticker(const CMsgApplySticker &message,
     else
     {
         // just update the wear
-        m_itemSchema.SetAttributeFloat(wearAttribute, wearLevel);
+        pInventory->m_itemSchema.SetAttributeFloat(wearAttribute, wearLevel);
 
         ToSingleObject(update, item);
     }
@@ -2037,9 +2037,9 @@ bool Inventory::IncrementKillCountAttribute(uint64_t itemId, uint32_t amount, CM
     // before reporting success. Round MVP is a normal part of every match, and a
     // crash, kill or power loss before the next save used to lose the increment.
     const uint64_t previousVersion = m_version;
-    const uint32_t previousCount = m_itemSchema.AttributeUint32(killEaterAttribute);
+    const uint32_t previousCount = pInventory->m_itemSchema.AttributeUint32(killEaterAttribute);
 
-    m_itemSchema.SetAttributeUint32(killEaterAttribute, previousCount + amount);
+    pInventory->m_itemSchema.SetAttributeUint32(killEaterAttribute, previousCount + amount);
     ToSingleObject(update, item);
 
     if (WriteToFile())
@@ -2047,7 +2047,7 @@ bool Inventory::IncrementKillCountAttribute(uint64_t itemId, uint32_t amount, CM
         return true;
     }
 
-    m_itemSchema.SetAttributeUint32(killEaterAttribute, previousCount);
+    pInventory->m_itemSchema.SetAttributeUint32(killEaterAttribute, previousCount);
     m_version = previousVersion;
     update.Clear();
     return false;
@@ -2092,7 +2092,7 @@ uint64_t Inventory::EquippedStatTrakMusicKitItemId() const
             continue;
         }
 
-        if (MusicKit::IsStatTrak(ReadKillEaterAttributes(m_itemSchema, item)))
+        if (MusicKit::IsStatTrak(ReadKillEaterAttributes(pInventory->m_itemSchema, item)))
         {
             return item.id();
         }
@@ -2113,7 +2113,7 @@ uint32_t Inventory::MusicKitMVPCount(uint64_t musicKitItemId) const
     {
         if (attribute.def_index() == ItemSchema::AttributeKillEater)
         {
-            return m_itemSchema.AttributeUint32(&attribute);
+            return pInventory->m_itemSchema.AttributeUint32(&attribute);
         }
     }
 
@@ -2162,7 +2162,7 @@ bool Inventory::NameItem(uint64_t nameTagId,
     auto tag = m_items.end();
     if (isCasketNaming)
     {
-        if (!PrepareCasketForNaming(m_itemSchema, it->second))
+        if (!PrepareCasketForNaming(pInventory->m_itemSchema, it->second))
         {
             Platform::Print("NameItem: failed to initialize casket %llu\n", itemId);
             return false;
@@ -2170,7 +2170,7 @@ bool Inventory::NameItem(uint64_t nameTagId,
     }
     else
     {
-        if (!m_itemSchema.CanNameDefIndex(it->second.def_index()))
+        if (!pInventory->m_itemSchema.CanNameDefIndex(it->second.def_index()))
         {
             Platform::Print("NameItem: target %llu def %u is not nameable by name tag %llu\n",
                 itemId, it->second.def_index(), nameTagId);
@@ -2185,7 +2185,7 @@ bool Inventory::NameItem(uint64_t nameTagId,
             return false;
         }
 
-        if (!m_itemSchema.IsNameTagToolDefIndex(tag->second.def_index()))
+        if (!pInventory->m_itemSchema.IsNameTagToolDefIndex(tag->second.def_index()))
         {
             Platform::Print("NameItem: item %llu def %u is not a name tag for target %llu\n",
                 nameTagId, tag->second.def_index(), itemId);
@@ -2195,7 +2195,7 @@ bool Inventory::NameItem(uint64_t nameTagId,
 
     CSOEconItem &item = it->second;
 
-    SetCustomNameAttribute(m_itemSchema, item, name);
+    SetCustomNameAttribute(pInventory->m_itemSchema, item, name);
 
     ToSingleObject(update, item);
 
@@ -2225,14 +2225,14 @@ bool Inventory::NameBaseItem(uint64_t nameTagId,
         return false;
     }
 
-    if (!m_itemSchema.IsNameTagToolDefIndex(tag->second.def_index()))
+    if (!pInventory->m_itemSchema.IsNameTagToolDefIndex(tag->second.def_index()))
     {
         Platform::Print("NameBaseItem: item %llu def %u is not a name tag for base def %u\n",
             nameTagId, tag->second.def_index(), defIndex);
         return false;
     }
 
-    if (!m_itemSchema.CanNameDefIndex(defIndex))
+    if (!pInventory->m_itemSchema.CanNameDefIndex(defIndex))
     {
         Platform::Print("NameBaseItem: base def %u is not nameable by name tag %llu\n",
             defIndex, nameTagId);
@@ -2242,7 +2242,7 @@ bool Inventory::NameBaseItem(uint64_t nameTagId,
     CSOEconItem &item = CreateItem(defIndex, ItemOriginBaseItem, UnacknowledgedInvalid);
     item.set_rarity(ItemSchema::RarityDefault);
 
-    SetCustomNameAttribute(m_itemSchema, item, name);
+    SetCustomNameAttribute(pInventory->m_itemSchema, item, name);
 
     ToSingleObject(create, item);
 
@@ -2269,7 +2269,7 @@ bool Inventory::RemoveItemName(uint64_t itemId,
         return false;
     }
 
-    SetCustomNameAttribute(m_itemSchema, it->second, std::string_view{});
+    SetCustomNameAttribute(pInventory->m_itemSchema, it->second, std::string_view{});
 
     if (IsUncustomizedBaseItemClone(it->second))
     {
@@ -2314,8 +2314,8 @@ void Inventory::EmbedStorageReference(CSOEconItem &item, uint64_t storageId)
     attrLow->set_def_index(ItemSchema::AttributeCasketIdLow);
     attrHigh->set_def_index(ItemSchema::AttributeCasketIdHigh);
     
-    m_itemSchema.SetAttributeUint32(attrLow, storageId & 0xFFFFFFFF);
-    m_itemSchema.SetAttributeUint32(attrHigh, storageId >> 32);
+    pInventory->m_itemSchema.SetAttributeUint32(attrLow, storageId & 0xFFFFFFFF);
+    pInventory->m_itemSchema.SetAttributeUint32(attrHigh, storageId >> 32);
     
     item.clear_equipped_state();
 }
@@ -2380,7 +2380,7 @@ void Inventory::LogInventoryConsistency() const
         {
             if (attribute.def_index() == ItemSchema::AttributeCasketItemsCount)
             {
-                configuredCasketCountById[item.id()] = m_itemSchema.AttributeUint32(&attribute);
+                configuredCasketCountById[item.id()] = pInventory->m_itemSchema.AttributeUint32(&attribute);
                 hasCount = true;
                 break;
             }
@@ -2396,7 +2396,7 @@ void Inventory::LogInventoryConsistency() const
     for (const auto &pair : m_items)
     {
         const CSOEconItem &item = pair.second;
-        const ItemInfo *itemInfo = m_itemSchema.ItemInfoByDefIndex(item.def_index());
+        const ItemInfo *itemInfo = pInventory->m_itemSchema.ItemInfoByDefIndex(item.def_index());
 
         if (!itemInfo)
         {
@@ -2418,7 +2418,7 @@ void Inventory::LogInventoryConsistency() const
             switch (attribute.def_index())
             {
             case ItemSchema::AttributeTexturePrefab:
-                paintKitDefIndex = m_itemSchema.AttributeUint32(&attribute);
+                paintKitDefIndex = pInventory->m_itemSchema.AttributeUint32(&attribute);
                 paintKitAttributes++;
                 break;
 
@@ -2453,7 +2453,7 @@ void Inventory::LogInventoryConsistency() const
 
         if (paintKitAttributes > 0)
         {
-            const PaintKitInfo *paintKitInfo = m_itemSchema.PaintKitInfoByDefIndex(paintKitDefIndex);
+            const PaintKitInfo *paintKitInfo = pInventory->m_itemSchema.PaintKitInfoByDefIndex(paintKitDefIndex);
             if (!paintKitInfo)
             {
                 issueCount++;
@@ -2461,7 +2461,7 @@ void Inventory::LogInventoryConsistency() const
                     item.id(), paintKitDefIndex, item.def_index());
             }
 
-            uint32_t paintedRarity = m_itemSchema.GetPaintedRarity(
+            uint32_t paintedRarity = pInventory->m_itemSchema.GetPaintedRarity(
                 item.def_index(),
                 paintKitDefIndex,
                 item.rarity());
@@ -2486,8 +2486,8 @@ void Inventory::LogInventoryConsistency() const
             }
 
             std::vector<std::string> collections;
-            if (!m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections)
-                && !m_itemSchema.inventory->m_itemSchema(paintKitDefIndex, collections))
+            if (!pInventory->m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections)
+                && !pInventory->m_itemSchema.inventory->pInventory->m_itemSchema(paintKitDefIndex, collections))
             {
                 issueCount++;
                 Platform::Print("InventoryCheck: painted item %llu has no collection mapping (def %u, paint %u)\n",
@@ -2518,7 +2518,7 @@ void Inventory::LogInventoryConsistency() const
                 item.id(), casketLowAttributes, casketHighAttributes);
         }
 
-        std::optional<uint64_t> storageId = StorageReference(item, m_itemSchema);
+        std::optional<uint64_t> storageId = StorageReference(item, pInventory->m_itemSchema);
         if (storageId.has_value())
         {
             storedItemCountByCasket[*storageId]++;
@@ -2592,18 +2592,18 @@ bool Inventory::ModifyStorageCounter(CSOEconItem &storage, int delta)
     if (countIdx < 0) return false;
     
     auto *countAttr = storage.mutable_attribute(countIdx);
-    int32_t current = static_cast<int32_t>(m_itemSchema.AttributeUint32(countAttr));
+    int32_t current = static_cast<int32_t>(pInventory->m_itemSchema.AttributeUint32(countAttr));
     int32_t updated = current + delta;
     
     if (updated < 0 || updated > 1000)
         return false;
     
-    m_itemSchema.SetAttributeUint32(countAttr, updated);
+    pInventory->m_itemSchema.SetAttributeUint32(countAttr, updated);
     
     if (dateIdx >= 0)
     {
         auto *dateAttr = storage.mutable_attribute(dateIdx);
-        m_itemSchema.SetAttributeUint32(dateAttr, static_cast<uint32_t>(time(nullptr)));
+        pInventory->m_itemSchema.SetAttributeUint32(dateAttr, static_cast<uint32_t>(time(nullptr)));
     }
     
     return true;
@@ -2646,7 +2646,7 @@ Inventory::StorageTransaction Inventory::DepositItemToStorage(uint64_t storageId
         return tx;
     }
 
-    if (StorageReference(*target, m_itemSchema).has_value())
+    if (StorageReference(*target, pInventory->m_itemSchema).has_value())
     {
         tx.outcome = StorageResult::InternalError;
         return tx;
@@ -2694,7 +2694,7 @@ Inventory::StorageTransaction Inventory::WithdrawItemFromStorage(uint64_t storag
         return tx;
     }
 
-    std::optional<uint64_t> storedIn = StorageReference(*target, m_itemSchema);
+    std::optional<uint64_t> storedIn = StorageReference(*target, pInventory->m_itemSchema);
     if (!storedIn.has_value() || *storedIn != storageId)
     {
         tx.outcome = StorageResult::ItemNotFound;
@@ -2771,7 +2771,7 @@ Inventory::CounterSwapResult Inventory::PerformCounterSwap(uint64_t toolId, uint
         return result;
     }
 
-    if (!m_itemSchema.IsStatTrakSwapToolDefIndex(toolIt->second.def_index()))
+    if (!pInventory->m_itemSchema.IsStatTrakSwapToolDefIndex(toolIt->second.def_index()))
     {
         Platform::Print("StatTrakSwap: item %llu def %u is not a StatTrak Swap Tool\n",
             toolId, toolIt->second.def_index());
@@ -2792,8 +2792,8 @@ Inventory::CounterSwapResult Inventory::PerformCounterSwap(uint64_t toolId, uint
     CSOEconItem &weaponA = itA->second;
     CSOEconItem &weaponB = itB->second;
 
-    bool weaponACanSwap = m_itemSchema.CanStatTrakSwapDefIndex(weaponA.def_index());
-    bool weaponBCanSwap = m_itemSchema.CanStatTrakSwapDefIndex(weaponB.def_index());
+    bool weaponACanSwap = pInventory->m_itemSchema.CanStatTrakSwapDefIndex(weaponA.def_index());
+    bool weaponBCanSwap = pInventory->m_itemSchema.CanStatTrakSwapDefIndex(weaponB.def_index());
     if (!weaponACanSwap || !weaponBCanSwap)
     {
         Platform::Print("StatTrakSwap: weapon definitions must both support StatTrak Swap (weapon %llu def %u ok=%d, weapon %llu def %u ok=%d)\n",
@@ -2803,8 +2803,8 @@ Inventory::CounterSwapResult Inventory::PerformCounterSwap(uint64_t toolId, uint
         return result;
     }
 
-    CounterSwapWeaponCounters countersA = FindCounterSwapWeaponCounters(m_itemSchema, weaponA);
-    CounterSwapWeaponCounters countersB = FindCounterSwapWeaponCounters(m_itemSchema, weaponB);
+    CounterSwapWeaponCounters countersA = FindCounterSwapWeaponCounters(pInventory->m_itemSchema, weaponA);
+    CounterSwapWeaponCounters countersB = FindCounterSwapWeaponCounters(pInventory->m_itemSchema, weaponB);
     CSOEconItemAttribute *attrA = countersA.killEater;
     CSOEconItemAttribute *attrB = countersB.killEater;
     
@@ -2824,11 +2824,11 @@ Inventory::CounterSwapResult Inventory::PerformCounterSwap(uint64_t toolId, uint
         return result;
     }
     
-    uint32_t valA = m_itemSchema.AttributeUint32(attrA);
-    uint32_t valB = m_itemSchema.AttributeUint32(attrB);
+    uint32_t valA = pInventory->m_itemSchema.AttributeUint32(attrA);
+    uint32_t valB = pInventory->m_itemSchema.AttributeUint32(attrB);
     
-    m_itemSchema.SetAttributeUint32(attrA, valB);
-    m_itemSchema.SetAttributeUint32(attrB, valA);
+    pInventory->m_itemSchema.SetAttributeUint32(attrA, valB);
+    pInventory->m_itemSchema.SetAttributeUint32(attrB, valA);
     
     ConsumeToolItem(toolId, result.toolRemoval);
     
@@ -2841,7 +2841,7 @@ Inventory::CounterSwapResult Inventory::PerformCounterSwap(uint64_t toolId, uint
 
 uint64_t Inventory::PurchaseItem(uint32_t defIndex, std::vector<CMsgSOSingleObject> &update)
 {
-    if (!m_itemSchema.CanCreateItem(defIndex))
+    if (!pInventory->m_itemSchema.CanCreateItem(defIndex))
     {
         Platform::Print("PurchaseItem: unavailable def_index %u\n", defIndex);
         return 0;
@@ -2880,19 +2880,19 @@ uint64_t Inventory::CreateRconItem(uint32_t defIndex,
     CMsgSOSingleObject &update,
     std::string &error)
 {
-    if (!m_itemSchema.ItemInfoByDefIndex(defIndex))
+    if (!pInventory->m_itemSchema.ItemInfoByDefIndex(defIndex))
     {
         error = "unknown defindex";
         return 0;
     }
 
-    if (options.paint && !m_itemSchema.PaintKitInfoByDefIndex(*options.paint))
+    if (options.paint && !pInventory->m_itemSchema.PaintKitInfoByDefIndex(*options.paint))
     {
         error = "unknown paint";
         return 0;
     }
 
-    if (options.music && !m_itemSchema.MusicDefinitionInfoByDefIndex(*options.music))
+    if (options.music && !pInventory->m_itemSchema.MusicDefinitionInfoByDefIndex(*options.music))
     {
         error = "unknown music";
         return 0;
@@ -2913,7 +2913,7 @@ uint64_t Inventory::CreateRconItem(uint32_t defIndex,
 
     for (const std::optional<uint32_t> &sticker : options.sticker)
     {
-        if (sticker && !m_itemSchema.StickerKitInfoByDefIndex(*sticker))
+        if (sticker && !pInventory->m_itemSchema.StickerKitInfoByDefIndex(*sticker))
         {
             error = "unknown sticker";
             return 0;
@@ -2931,19 +2931,19 @@ uint64_t Inventory::CreateRconItem(uint32_t defIndex,
 
     if (options.customName && !options.customName->empty())
     {
-        SetCustomNameAttribute(m_itemSchema, item, *options.customName);
+        SetCustomNameAttribute(pInventory->m_itemSchema, item, *options.customName);
     }
 
     if (options.paint)
     {
         CSOEconItemAttribute *attribute = FindOrAddAttribute(item, ItemSchema::AttributeTexturePrefab);
-        m_itemSchema.SetAttributeUint32(attribute, *options.paint);
+        pInventory->m_itemSchema.SetAttributeUint32(attribute, *options.paint);
 
         attribute = FindOrAddAttribute(item, ItemSchema::AttributeTextureSeed);
-        m_itemSchema.SetAttributeUint32(attribute, options.seed.value_or(0));
+        pInventory->m_itemSchema.SetAttributeUint32(attribute, options.seed.value_or(0));
 
         attribute = FindOrAddAttribute(item, ItemSchema::AttributeTextureWear);
-        m_itemSchema.SetAttributeFloat(attribute, options.wear.value_or(0.001f));
+        pInventory->m_itemSchema.SetAttributeFloat(attribute, options.wear.value_or(0.001f));
 
         if (!options.quality)
         {
@@ -2952,7 +2952,7 @@ uint64_t Inventory::CreateRconItem(uint32_t defIndex,
 
         if (!options.rarity)
         {
-            item.set_rarity(m_itemSchema.GetPaintedRarity(defIndex, *options.paint, item.rarity()));
+            item.set_rarity(pInventory->m_itemSchema.GetPaintedRarity(defIndex, *options.paint, item.rarity()));
         }
     }
     else
@@ -2960,26 +2960,26 @@ uint64_t Inventory::CreateRconItem(uint32_t defIndex,
         if (options.seed)
         {
             CSOEconItemAttribute *attribute = FindOrAddAttribute(item, ItemSchema::AttributeTextureSeed);
-            m_itemSchema.SetAttributeUint32(attribute, *options.seed);
+            pInventory->m_itemSchema.SetAttributeUint32(attribute, *options.seed);
         }
 
         if (options.wear)
         {
             CSOEconItemAttribute *attribute = FindOrAddAttribute(item, ItemSchema::AttributeTextureWear);
-            m_itemSchema.SetAttributeFloat(attribute, *options.wear);
+            pInventory->m_itemSchema.SetAttributeFloat(attribute, *options.wear);
         }
     }
 
     if (options.music)
     {
         CSOEconItemAttribute *attribute = FindOrAddAttribute(item, ItemSchema::AttributeMusicId);
-        m_itemSchema.SetAttributeUint32(attribute, *options.music);
+        pInventory->m_itemSchema.SetAttributeUint32(attribute, *options.music);
 
         attribute = FindOrAddAttribute(item, ItemSchema::AttributeKillEater);
-        m_itemSchema.SetAttributeUint32(attribute, options.statTrak ? (*options.statTrak == 1 ? 0 : *options.statTrak) : 0);
+        pInventory->m_itemSchema.SetAttributeUint32(attribute, options.statTrak ? (*options.statTrak == 1 ? 0 : *options.statTrak) : 0);
 
         attribute = FindOrAddAttribute(item, ItemSchema::AttributeKillEaterScoreType);
-        m_itemSchema.SetAttributeUint32(attribute, 1);
+        pInventory->m_itemSchema.SetAttributeUint32(attribute, 1);
 
         if (!options.quality)
         {
@@ -2995,10 +2995,10 @@ uint64_t Inventory::CreateRconItem(uint32_t defIndex,
     if (options.statTrak && !options.music)
     {
         CSOEconItemAttribute *attribute = FindOrAddAttribute(item, ItemSchema::AttributeKillEater);
-        m_itemSchema.SetAttributeUint32(attribute, *options.statTrak == 1 ? 0 : *options.statTrak);
+        pInventory->m_itemSchema.SetAttributeUint32(attribute, *options.statTrak == 1 ? 0 : *options.statTrak);
 
         attribute = FindOrAddAttribute(item, ItemSchema::AttributeKillEaterScoreType);
-        m_itemSchema.SetAttributeUint32(attribute, 0);
+        pInventory->m_itemSchema.SetAttributeUint32(attribute, 0);
 
         if (!options.quality)
         {
@@ -3009,13 +3009,13 @@ uint64_t Inventory::CreateRconItem(uint32_t defIndex,
     if (options.sprayColor)
     {
         CSOEconItemAttribute *attribute = FindOrAddAttribute(item, ItemSchema::AttributeSprayTintId);
-        m_itemSchema.SetAttributeUint32(attribute, *options.sprayColor);
+        pInventory->m_itemSchema.SetAttributeUint32(attribute, *options.sprayColor);
     }
 
     if (options.sprayRemaining)
     {
         CSOEconItemAttribute *attribute = FindOrAddAttribute(item, ItemSchema::AttributeSpraysRemaining);
-        m_itemSchema.SetAttributeUint32(attribute, *options.sprayRemaining);
+        pInventory->m_itemSchema.SetAttributeUint32(attribute, *options.sprayRemaining);
     }
 
     auto setTournamentAttribute = [&](const std::optional<uint32_t> &value, uint32_t attributeDefIndex)
@@ -3026,7 +3026,7 @@ uint64_t Inventory::CreateRconItem(uint32_t defIndex,
         }
 
         CSOEconItemAttribute *attribute = FindOrAddAttribute(item, attributeDefIndex);
-        m_itemSchema.SetAttributeUint32(attribute, *value);
+        pInventory->m_itemSchema.SetAttributeUint32(attribute, *value);
     };
 
     setTournamentAttribute(options.tournament.eventId, ItemSchema::AttributeTournamentEventId);
@@ -3040,27 +3040,27 @@ uint64_t Inventory::CreateRconItem(uint32_t defIndex,
         if (options.sticker[i])
         {
             CSOEconItemAttribute *attribute = FindOrAddAttribute(item, StickerIdAttribute(i));
-            m_itemSchema.SetAttributeUint32(attribute, *options.sticker[i]);
+            pInventory->m_itemSchema.SetAttributeUint32(attribute, *options.sticker[i]);
 
             attribute = FindOrAddAttribute(item, StickerWearAttribute(i));
-            m_itemSchema.SetAttributeFloat(attribute, options.stickerWear[i].value_or(0.0f));
+            pInventory->m_itemSchema.SetAttributeFloat(attribute, options.stickerWear[i].value_or(0.0f));
         }
         else if (options.stickerWear[i])
         {
             CSOEconItemAttribute *attribute = FindOrAddAttribute(item, StickerWearAttribute(i));
-            m_itemSchema.SetAttributeFloat(attribute, *options.stickerWear[i]);
+            pInventory->m_itemSchema.SetAttributeFloat(attribute, *options.stickerWear[i]);
         }
 
         if (options.stickerScale[i])
         {
             CSOEconItemAttribute *attribute = FindOrAddAttribute(item, StickerScaleAttribute(i));
-            m_itemSchema.SetAttributeFloat(attribute, *options.stickerScale[i]);
+            pInventory->m_itemSchema.SetAttributeFloat(attribute, *options.stickerScale[i]);
         }
 
         if (options.stickerRotation[i])
         {
             CSOEconItemAttribute *attribute = FindOrAddAttribute(item, StickerRotationAttribute(i));
-            m_itemSchema.SetAttributeFloat(attribute, *options.stickerRotation[i]);
+            pInventory->m_itemSchema.SetAttributeFloat(attribute, *options.stickerRotation[i]);
         }
     }
 
@@ -3199,14 +3199,14 @@ void Inventory::DestroyItem(ItemMap::iterator iterator, CMsgSOSingleObject &mess
 // Requires ItemSchema::GetSpecialTradeUpCandidates (see ItemSchema_gold_pool.cpp).
 // Everything else uses schema methods that already exist.
 
-bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
+bool Inventory::TradeUp(Inventory* pInventory, const std::vector<uint64_t>& inputItemIds,
     std::vector<CMsgSOSingleObject>& destroyItems,
     CMsgSOSingleObject& newItem,
     int16_t responseRecipeIndex,
     CSOEconItem** outCraftedItem)
 {
     // Simply reference the class tracking member variable
-    hasCovertTradeUpInput = false;
+    pInventory->hasCovertTradeUpInput = false;
 
     constexpr size_t StandardTradeUpCount = 10;
     constexpr size_t GoldTradeUpCount = 5;
@@ -3268,7 +3268,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
             debug.paintedRarity,
             debug.quality,
             debug.collectionId.c_str(),
-            GetCollectionName(pInventory->m_itemSchema, debug.collectionId).c_str());
+            GetCollectionName(pInventory->pInventory->m_itemSchema, debug.collectionId).c_str());
     };
 
     for (size_t i = 0; i < inputItemIds.size(); i++)
@@ -3298,7 +3298,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
         debug.quality = item.quality();
 
         uint32_t paintKitDefIndex = 0;
-        if (!GetItemPaintKitDefIndex(item, m_itemSchema, paintKitDefIndex))
+        if (!GetItemPaintKitDefIndex(item, pInventory->pInventory->m_itemSchema, paintKitDefIndex))
         {
             Platform::Print("Trade-up item %llu has no paint kit (def %u, stored rarity %u, quality %u)\n",
                 itemId, item.def_index(), item.rarity(), item.quality());
@@ -3317,7 +3317,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
                 return false;
             }
 
-            const ItemInfo* inputInfo = m_itemSchema.ItemInfoByDefIndex(item.def_index());
+            const ItemInfo* inputInfo = pInventory->m_itemSchema.ItemInfoByDefIndex(item.def_index());
             if (!inputInfo || inputInfo->m_quality == ItemSchema::QualityUnusual
                 || item.def_index() >= FirstKnifeGloveDefIndex)
             {
@@ -3350,9 +3350,9 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
         }
 
         std::vector<std::string> collections;
-        if (pInventory->m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections) == false)
+        if (pInventory->pInventory->m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections) == false)
         {
-            if (pInventory->m_itemSchema.GetCollectionsForPaintKit(paintKitDefIndex, collections) == false)
+            if (pInventory->pInventory->m_itemSchema.GetCollectionsForPaintKit(paintKitDefIndex, collections) == false)
             {
                 Platform::Print("Trade-up item %llu has no collection mapping (def %u, paint %u, stored rarity %u, painted rarity %u, quality %u)\n",
                     itemId, item.def_index(), paintKitDefIndex, item.rarity(), rarity, item.quality());
@@ -3384,14 +3384,14 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
             }
             else if (attr.def_index() == ItemSchema::AttributeKillEaterScoreType)
             {
-                hasNonWeaponScoreType = m_itemSchema.AttributeUint32(&attr) != 0;
+                hasNonWeaponScoreType = pInventory->m_itemSchema.AttributeUint32(&attr) != 0;
             }
             else if (attr.def_index() == ItemSchema::AttributeTextureWear)
             {
                 hasWear = true;
-                float wear = m_itemSchema.AttributeFloat(&attr);
+                float wear = pInventory->m_itemSchema.AttributeFloat(&attr);
                 float normalized = wear;
-                const PaintKitInfo* kitInfo = m_itemSchema.PaintKitInfoByDefIndex(paintKitDefIndex);
+                const PaintKitInfo* kitInfo = pInventory->m_itemSchema.PaintKitInfoByDefIndex(paintKitDefIndex);
                 if (kitInfo)
                 {
                     float span = kitInfo->m_maxFloat - kitInfo->m_minFloat;
@@ -3460,8 +3460,8 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
     auto getCandidates = [&](const std::string& collection, std::vector<const LootListItem*>& out) -> bool
     {
         bool ok = isGoldContract
-            ? pInventory->m_itemSchema.GetSpecialTradeUpCandidates(collection, out)
-            : pInventory->m_itemSchema.GetTradeUpCandidates(collection, outputRarity, out);
+            ? pInventory->pInventory->m_itemSchema.GetSpecialTradeUpCandidates(collection, out)
+            : pInventory->pInventory->m_itemSchema.GetTradeUpCandidates(collection, outputRarity, out);
         return ok && !out.empty();
     };
 
@@ -3483,7 +3483,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
         }
 
         float percentage = (float)count / (float)inputItemIds.size() * 100.0f;
-        Platform::Print("%s Collection: %.1f%%\n", GetCollectionName(pInventory->m_itemSchema, collection).c_str(), percentage);
+        Platform::Print("%s Collection: %.1f%%\n", GetCollectionName(pInventory->pInventory->m_itemSchema, collection).c_str(), percentage);
     }
 
     if (weightedCollections.empty())
@@ -3576,11 +3576,11 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
 
         CSOEconItemAttribute* paintAttr = outputItem.add_attribute();
         paintAttr->set_def_index(ItemSchema::AttributeTexturePrefab);
-        m_itemSchema.SetAttributeUint32(paintAttr, paintKitId);
+        pInventory->m_itemSchema.SetAttributeUint32(paintAttr, paintKitId);
 
         CSOEconItemAttribute* seedAttr = outputItem.add_attribute();
         seedAttr->set_def_index(ItemSchema::AttributeTextureSeed);
-        m_itemSchema.SetAttributeUint32(seedAttr, Random::Integer<uint32_t>(0, 1000));
+        pInventory->m_itemSchema.SetAttributeUint32(seedAttr, Random::Integer<uint32_t>(0, 1000));
 
         float minWear = selectedCandidate->paintKitInfo->m_minFloat;
         float maxWear = selectedCandidate->paintKitInfo->m_maxFloat;
@@ -3588,18 +3588,18 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
 
         CSOEconItemAttribute* wearAttr = outputItem.add_attribute();
         wearAttr->set_def_index(ItemSchema::AttributeTextureWear);
-        m_itemSchema.SetAttributeFloat(wearAttr, outputWear);
+        pInventory->m_itemSchema.SetAttributeFloat(wearAttr, outputWear);
     }
 
     if (hasStatTrak)
     {
         CSOEconItemAttribute* killAttr = outputItem.add_attribute();
         killAttr->set_def_index(ItemSchema::AttributeKillEater);
-        m_itemSchema.SetAttributeUint32(killAttr, 0);
+        pInventory->m_itemSchema.SetAttributeUint32(killAttr, 0);
 
         CSOEconItemAttribute* scoreTypeAttr = outputItem.add_attribute();
         scoreTypeAttr->set_def_index(ItemSchema::AttributeKillEaterScoreType);
-        m_itemSchema.SetAttributeUint32(scoreTypeAttr, 0);
+        pInventory->m_itemSchema.SetAttributeUint32(scoreTypeAttr, 0);
     }
 
     destroyItems.reserve(inputItemIds.size());
@@ -3617,7 +3617,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
 
     if (inputRarity == 6 || hasCovertTradeUpInput)
     {
-        uint32_t goldDefIndex = m_itemSchema.RollRandomSpecialItemFromCollection(selectedCollection);
+        uint32_t goldDefIndex = pInventory->m_itemSchema.RollRandomSpecialItemFromCollection(selectedCollection);
         outputItem.set_def_index(goldDefIndex);
         outputItem.set_rarity(99);
 
@@ -3654,7 +3654,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
     }
 
     Platform::Print("Trade-up complete: created item %llu from collection %s (%s), def %u, rarity %u, wear %.4f, stattrak=%d\n",
-        (unsigned long long)outputItem.id(), selectedCollection.c_str(), GetCollectionName(m_itemSchema, selectedCollection).c_str(),
+        (unsigned long long)outputItem.id(), selectedCollection.c_str(), GetCollectionName(pInventory->m_itemSchema, selectedCollection).c_str(),
         outputItem.def_index(), selectedCandidate->rarity, outputWear, hasStatTrak ? 1 : 0);
 
     return true;
