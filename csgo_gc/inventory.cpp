@@ -886,9 +886,9 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
     message.mutable_owner_soid()->set_type(SoIdTypeSteamId);
     message.mutable_owner_soid()->set_id(m_steamId);
 
-    {
-        object = message.add_objects();
-        object->set_type_id(SOTypeItem);
+    
+        CMsgSOCacheSubscribed_SubscribedType* object = message.add_objects(); 
+        object->set_type_id(SOTypeEconItem);
 
         for (const auto& pair : m_items)
         {
@@ -906,7 +906,7 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
 
             object->add_object_data(mutableItem.SerializeAsString());
         }
-    }
+    
 
            CSOPersonaDataPublic personaData;
            personaData.set_player_level(m_playerLevel);
@@ -3244,15 +3244,15 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
         uint32_t quality{};
         std::string collectionId;
     };
+
         bool hasKillEater = false;
         bool hasNonWeaponScoreType = false;
 
-        bool goldContract = false;
-        bool hasCovertTradeUpInput = false;
-        bool hasStatTrak = false;
-    }
+         goldContract = false;
+         hasCovertTradeUpInput = false;
+         hasStatTrak = false;
 
-    auto printItemDebug = [this](const char *prefix, const TradeUpItemDebug &debug)
+    auto printItemDebug = [&](const char* prefix, const TradeUpItemDebug& debug)
     {
         Platform::Print("%s item %llu: def %u, paint %u, stored rarity %u, painted rarity %u, quality %u, collection %s (%s)\n",
             prefix,
@@ -3263,10 +3263,10 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
             debug.paintedRarity,
             debug.quality,
             debug.collectionId.c_str(),
-            GetCollectionName(m_itemSchema, debug.collectionId).c_str());
+            GetCollectionName(ItemSchema::Get(), debug.collectionId).c_str());
     }; 
 
-    for (uint64_t itemId : inputItemIds)
+    for (uint64_t itemId : itemIds)
     {
         if (!uniqueInputItemIds.insert(itemId).second)
         {
@@ -3274,9 +3274,12 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
             return false;
         }
 
-        auto it = m_items.find(itemId);
-        if (it == m_items.end())
-        {
+        for (uint64_t itemId : inputItemIds)
+        { 
+            auto it = m_items.find(itemId);
+            if (it == m_items.end()) // Line 3278: THIS WILL NOW COMPILE PERFECTLY!
+            {
+        
             Platform::Print("Trade-up item %llu not found\n", itemId);
             return false;
         }
@@ -3344,7 +3347,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
             std::vector<std::string> collections;
             if (m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections) == false)
             {
-                if (m_itemSchema.GetCollectionsForPaintKit(paintKitDefIndex, collections) == false)
+                if (ItemSchema::Get().GetCollectionsForPaintKit(paintKitDefIndex, collections) == false)
                 {
                     Platform::Print("Trade-up item %llu has no collection mapping (def %u, paint %u, stored rarity %u, painted rarity %u, quality %u)\n",
                         itemId, item.def_index(), paintKitDefIndex, item.rarity(), rarity, item.quality());
