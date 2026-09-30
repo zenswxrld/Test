@@ -888,7 +888,7 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
 
     
         CMsgSOCacheSubscribed_SubscribedType* object = message.add_objects(); 
-        object->set_type_id(SOType_EconItem);
+        object->set_type_id(SOTypeEconItem);
 
         for (const auto& pair : m_items)
         {
@@ -3213,9 +3213,9 @@ bool Inventory::TradeUp(const std::vector<uint64_t>& inputItemIds,
     constexpr uint32_t FirstKnifeGloveDefIndex = 500;
 
     std::string collectionId;
-    outputRarity = 0;
-    isGoldContract = false;
-    avgWear = 0.0f;
+    uint32_t outputRarity = 0;
+    bool isGoldContract = false;
+    float avgWear = 0.0f;
 
     const size_t inputCount = inputItemIds.size();
     const bool goldContract = inputCount == GoldTradeUpCount;
